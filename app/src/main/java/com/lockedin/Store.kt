@@ -35,4 +35,11 @@ object Store{
  fun quote(c:Context)=f(c,Q[(Calendar.getInstance().get(Calendar.DAY_OF_YEAR)+Calendar.getInstance().get(Calendar.HOUR_OF_DAY))%Q.size])
  fun insult(c:Context)=f(c,I.random())
  fun nag(c:Context)=f(c,G.random())
+
+ fun key(ago:Int):String{val cl=Calendar.getInstance();cl.add(Calendar.DAY_OF_YEAR,-ago);return SimpleDateFormat("yyyy-MM-dd",Locale.US).format(cl.time)}
+ fun liveProgress(c:Context):Pair<Int,Int>{val l=log(c);val st=tasks(c).filter{it.strict};return st.count{l.optJSONObject(it.id)?.has("e")==true} to st.size}
+ fun pctAt(c:Context,ago:Int):Int{val h=p(c).getInt("h_"+key(ago),-1);if(h>=0||ago!=0)return h;val(d,t)=liveProgress(c);return if(t==0)-1 else d*100/t}
+ fun setHist(c:Context,pct:Int,ok:Boolean){p(c).edit().putInt("h_"+day(),pct).putBoolean("ok_"+day(),ok).apply();val s=streak(c);if(s>p(c).getInt("best",0))p(c).edit().putInt("best",s).apply()}
+ fun streak(c:Context):Int{var i=if(p(c).getBoolean("ok_"+day(),false))0 else 1;var n=0;while(i<400&&p(c).getBoolean("ok_"+key(i),false)){n++;i++};return n}
+ fun best(c:Context)=maxOf(p(c).getInt("best",0),streak(c))
 }

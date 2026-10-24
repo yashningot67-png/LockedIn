@@ -2,6 +2,7 @@ package com.lockedin
 import android.app.*
 import android.content.*
 import android.os.*
+import android.media.*
 
 object Scheduler{
  fun all(c:Context){Store.tasks(c).forEach{at(c,it.id,it.h,it.m)};audit(c)}
@@ -10,23 +11,23 @@ object Scheduler{
  fun at(c:Context,id:String,h:Int,m:Int){
   val cal=java.util.Calendar.getInstance().apply{set(java.util.Calendar.HOUR_OF_DAY,h);set(java.util.Calendar.MINUTE,m);set(java.util.Calendar.SECOND,0);set(java.util.Calendar.MILLISECOND,0);if(timeInMillis<=System.currentTimeMillis())add(java.util.Calendar.DAY_OF_YEAR,1)}
   val am=c.getSystemService(AlarmManager::class.java)
-  if(Build.VERSION.SDK_INT<31||am.canScheduleExactAlarms())am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,cal.timeInMillis,pi(c,id))
-  else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,cal.timeInMillis,pi(c,id))}
+  val show=PendingIntent.getActivity(c,9,Intent(c,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE)
+  am.setAlarmClock(AlarmManager.AlarmClockInfo(cal.timeInMillis,show),pi(c,id))}
  fun cancel(c:Context,id:String){c.getSystemService(AlarmManager::class.java).cancel(pi(c,id))}
 }
 object N{
  fun ch(c:Context){val nm=c.getSystemService(NotificationManager::class.java)
-  nm.createNotificationChannel(NotificationChannel("nag","Strict task alerts",NotificationManager.IMPORTANCE_HIGH))
+  nm.createNotificationChannel(NotificationChannel("nag2","Strict task alerts",NotificationManager.IMPORTANCE_HIGH).apply{setSound(null,null);enableVibration(true)})
   nm.createNotificationChannel(NotificationChannel("mini","Mini reminders",NotificationManager.IMPORTANCE_DEFAULT))}
  private fun open(c:Context,extra:String?=null)=PendingIntent.getActivity(c,7,Intent(c,MainActivity::class.java).apply{flags=Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP;if(extra!=null)putExtra(extra,true)},PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
  private fun act(c:Context,id:String,mode:String)=PendingIntent.getBroadcast(c,(id+mode).hashCode(),Intent(c,StartReceiver::class.java).putExtra("id",id).putExtra("mode",mode),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
  fun nag(c:Context,t:Task):Notification{ch(c);val txt=Store.nag(c)
-  return Notification.Builder(c,"nag").setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle(t.title+" ("+t.time+")").setContentText(txt).setStyle(Notification.BigTextStyle().bigText(txt))
+  return Notification.Builder(c,"nag2").setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle(t.title+" ("+t.time+")").setContentText(txt).setStyle(Notification.BigTextStyle().bigText(txt))
    .setOngoing(true).setCategory(Notification.CATEGORY_ALARM).setFullScreenIntent(open(c),true).setContentIntent(open(c))
    .addAction(0,"Start",act(c,t.id,"start")).addAction(0,"Aaj nahi",act(c,t.id,"skip")).build()}
  fun idle(c:Context):Notification{ch(c);return Notification.Builder(c,"mini").setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("Locked In").build()}
  fun mini(c:Context,t:Task){ch(c);c.getSystemService(NotificationManager::class.java).notify(t.id.hashCode(),Notification.Builder(c,"mini").setSmallIcon(android.R.drawable.ic_popup_reminder).setContentTitle(t.title).setContentText("Mini reminder, "+t.time).setAutoCancel(true).setContentIntent(open(c)).build())}
- fun auditNote(c:Context){ch(c);c.getSystemService(NotificationManager::class.java).notify(3,Notification.Builder(c,"nag").setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("Din ka audit time").setContentText("Sach bata, aaj kya kiya? Tap kar.").setAutoCancel(true).setContentIntent(open(c,"audit")).setFullScreenIntent(open(c,"audit"),true).build())}
+ fun auditNote(c:Context){ch(c);c.getSystemService(NotificationManager::class.java).notify(3,Notification.Builder(c,"nag2").setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("Din ka audit time").setContentText("Sach bata, aaj kya kiya? Tap kar.").setAutoCancel(true).setContentIntent(open(c,"audit")).setFullScreenIntent(open(c,"audit"),true).build())}
 }
 class AlarmReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent){
  val id=i.getStringExtra("id")?:return
@@ -41,16 +42,24 @@ class StartReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Inten
 class BootReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent){Scheduler.all(c);if(Store.pending(c)!=null)c.startForegroundService(Intent(c,NagService::class.java))}}
 class NagService:Service(){
  private val h=Handler(Looper.getMainLooper())
+ private var mp:MediaPlayer?=null
+ private fun ring(){if(mp?.isPlaying==true)return
+  try{val u=RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?:RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+   mp=MediaPlayer().apply{setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());setDataSource(this@NagService,u);isLooping=true;prepare();start()}}catch(e:Exception){}}
+ private fun hush(){try{mp?.release()}catch(e:Exception){};mp=null}
  private val loop=object:Runnable{override fun run(){
   val t=Store.pending(this@NagService)
-  if(t==null){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return}
+  if(t==null){hush();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return}
+  @Suppress("DEPRECATION")
+  getSystemService(PowerManager::class.java).newWakeLock(PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,"li:nag").acquire(10000)
+  ring()
   getSystemService(NotificationManager::class.java).notify(1,N.nag(this@NagService,t))
-  getSystemService(Vibrator::class.java).vibrate(VibrationEffect.createWaveform(longArrayOf(0,400,200,400),-1))
-  h.postDelayed(this,20000)}}
+  getSystemService(Vibrator::class.java).vibrate(VibrationEffect.createWaveform(longArrayOf(0,500,250,500),-1))
+  h.postDelayed(this,10000)}}
  override fun onBind(i:Intent?):IBinder?=null
  override fun onStartCommand(i:Intent?,f:Int,s:Int):Int{
   val n=Store.pending(this)?.let{N.nag(this,it)}?:N.idle(this)
   if(Build.VERSION.SDK_INT>=34)startForeground(1,n,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(1,n)
   h.removeCallbacks(loop);h.post(loop);return START_STICKY}
- override fun onDestroy(){h.removeCallbacks(loop)}
+ override fun onDestroy(){h.removeCallbacks(loop);hush()}
 }
