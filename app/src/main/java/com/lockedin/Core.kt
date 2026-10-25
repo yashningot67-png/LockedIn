@@ -12,7 +12,10 @@ object Scheduler{
   val cal=java.util.Calendar.getInstance().apply{set(java.util.Calendar.HOUR_OF_DAY,h);set(java.util.Calendar.MINUTE,m);set(java.util.Calendar.SECOND,0);set(java.util.Calendar.MILLISECOND,0);if(timeInMillis<=System.currentTimeMillis())add(java.util.Calendar.DAY_OF_YEAR,1)}
   val am=c.getSystemService(AlarmManager::class.java)
   val show=PendingIntent.getActivity(c,9,Intent(c,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE)
-  am.setAlarmClock(AlarmManager.AlarmClockInfo(cal.timeInMillis,show),pi(c,id))}
+  try{
+   if(Build.VERSION.SDK_INT<31||am.canScheduleExactAlarms())am.setAlarmClock(AlarmManager.AlarmClockInfo(cal.timeInMillis,show),pi(c,id))
+   else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,cal.timeInMillis,pi(c,id))
+  }catch(e:SecurityException){am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,cal.timeInMillis,pi(c,id))}}
  fun cancel(c:Context,id:String){c.getSystemService(AlarmManager::class.java).cancel(pi(c,id))}
 }
 object N{
