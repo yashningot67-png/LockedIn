@@ -9,8 +9,9 @@ class Blocker:AccessibilityService(){
   if(e.eventType!=AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)return
   val p=e.packageName?.toString()?:return
   if(p==packageName||safe.contains(p))return
-  val u=Store.locks(this).optLong(p,0)
-  if(u>System.currentTimeMillis()){performGlobalAction(GLOBAL_ACTION_HOME)
-   Toast.makeText(this,Store.label(this,p)+" locked hai. "+Store.goal(this)+" pe dhyaan de.",Toast.LENGTH_LONG).show()}}
+  val r=Store.reason(this,p)?:return
+  performGlobalAction(GLOBAL_ACTION_HOME)
+  val m=when(r){"lock"->L.f(this,"b_lock","a" to Store.label(this,p),"g" to Store.goal(this));"focus"->L.t(this,"b_focus");else->L.t(this,"b_sun")}
+  Toast.makeText(this,m,Toast.LENGTH_LONG).show()}
  override fun onInterrupt(){}
 }

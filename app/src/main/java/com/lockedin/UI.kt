@@ -5,13 +5,21 @@ import android.graphics.*
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 
-val RED=0xFFFF2D2D.toInt();val EMBER=0xFFFF8A1F.toInt();val BG=0xFF0A0A0B.toInt();val CARD=0xFF151517.toInt();val MUT=0xFF8E8E96.toInt();val TX=0xFFF4F4F5.toInt()
+var RED=0xFFFF2D2D.toInt();var EMBER=0xFFFF8A1F.toInt();var BG=0xFF0A0A0B.toInt();var CARD=0xFF151517.toInt();var PREMIUM=false
+val PAL=arrayOf(longArrayOf(0xFFFF2D2D,0xFFFF8A1F,0xFF151517,0xFF0A0A0B),longArrayOf(0xFFFF3030,0xFFFF8F26,0xFF161618,0xFF0A0A0B),longArrayOf(0xFFFF3B2F,0xFFFF9A3C,0xFF17181C,0xFF090A0C),longArrayOf(0xFFF7284A,0xFFFF7A59,0xFF1A1618,0xFF0A0809),
+ longArrayOf(0xFFE5173F,0xFFFF6B3D,0xFF1C1214,0xFF0C0809),longArrayOf(0xFFD81B60,0xFFFF5F6D,0xFF1B1219,0xFF0B0709),longArrayOf(0xFFE0A526,0xFFFFD76A,0xFF1B1810,0xFF0B0A07),longArrayOf(0xFFF2B01E,0xFFFFE08A,0xFF1E1A10,0xFF0C0B06),
+ longArrayOf(0xFFFF9E1B,0xFFFFD54F,0xFF1D1A12,0xFF0C0B08),longArrayOf(0xFFB0278F,0xFFFF4081,0xFF17101C,0xFF08060B),longArrayOf(0xFFFFC53D,0xFFFF4D2D,0xFF1A1410,0xFF070504))
+fun applyTheme(i:Int){val p=PAL[i.coerceIn(0,10)];RED=p[0].toInt();EMBER=p[1].toInt();CARD=p[2].toInt();BG=p[3].toInt();PREMIUM=i>=10}
+fun dim(c:Int)=Color.rgb(Color.red(c)/3,Color.green(c)/3,Color.blue(c)/3)
+fun lite(c:Int)=Color.rgb(minOf(255,Color.red(c)+70),minOf(255,Color.green(c)+70),minOf(255,Color.blue(c)+70))
+val MUT=0xFF8E8E96.toInt();val TX=0xFFF4F4F5.toInt()
 fun Context.dp(v:Float)=v*resources.displayMetrics.density
 private fun cond(sz:Float,col:Int)=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=col;textSize=sz;textAlign=Paint.Align.CENTER;typeface=Typeface.create("sans-serif-condensed",Typeface.BOLD)}
 private fun anim(f:(Float)->Unit,ms:Long)=ValueAnimator.ofFloat(0f,1f).apply{duration=ms;interpolator=DecelerateInterpolator();addUpdateListener{f(it.animatedValue as Float)}}.start()
 
 class RingView(c:Context):View(c){
- private var shown=0f;private var target=-1f
+ var label="TODAY";private var shown=0f;private var target=-1f
+ private val glow=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE}
  private val bg=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;color=0xFF26262A.toInt()}
  private val fg=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND}
  private val big=cond(c.dp(44f),TX);private val sm=cond(c.dp(11f),MUT)
@@ -19,12 +27,13 @@ class RingView(c:Context):View(c){
  override fun onDraw(cv:Canvas){val w=width.toFloat();val h=height.toFloat();val s=context.dp(13f);bg.strokeWidth=s;fg.strokeWidth=s
   fg.shader=SweepGradient(w/2,h/2,intArrayOf(EMBER,RED,EMBER),null)
   val r=RectF(s,s,w-s,h-s)
-  cv.save();cv.rotate(-90f,w/2,h/2);cv.drawArc(r,0f,360f,false,bg);if(shown>0f)cv.drawArc(r,0f,360f*shown/100f,false,fg);cv.restore()
-  cv.drawText(shown.toInt().toString()+"%",w/2,h/2+context.dp(10f),big);cv.drawText("TODAY",w/2,h/2+context.dp(32f),sm)}
+  cv.save();cv.rotate(-90f,w/2,h/2);if(PREMIUM){val a=(70+55*Math.sin(System.currentTimeMillis()/450.0)).toInt();glow.color=Color.argb(a,Color.red(EMBER),Color.green(EMBER),Color.blue(EMBER));glow.strokeWidth=s*1.9f;cv.drawArc(r,0f,360f,false,glow);postInvalidateOnAnimation()}
+  cv.drawArc(r,0f,360f,false,bg);if(shown>0f)cv.drawArc(r,0f,360f*shown/100f,false,fg);cv.restore()
+  cv.drawText(shown.toInt().toString()+"%",w/2,h/2+context.dp(10f),big);cv.drawText(label,w/2,h/2+context.dp(32f),sm)}
 }
 
 class FlameView(c:Context):View(c){
- private var n=-1;private var shown=0;private var f=0f
+ var tint=0;private var n=-1;private var shown=0;private var f=0f
  private val fl=Paint(Paint.ANTI_ALIAS_FLAG);private val inner=Paint(Paint.ANTI_ALIAS_FLAG);private val gl=Paint(Paint.ANTI_ALIAS_FLAG)
  private val tp=cond(c.dp(32f),Color.WHITE)
  private val path=Path().apply{moveTo(.5f,0f);cubicTo(.62f,.22f,.9f,.38f,.9f,.68f);cubicTo(.9f,.88f,.72f,1f,.5f,1f);cubicTo(.28f,1f,.1f,.88f,.1f,.68f);cubicTo(.1f,.5f,.25f,.42f,.3f,.28f);cubicTo(.38f,.4f,.42f,.3f,.5f,0f);close()}
@@ -35,7 +44,8 @@ class FlameView(c:Context):View(c){
  override fun onDraw(cv:Canvas){val w=width.toFloat();val h=height.toFloat();val on=n>0
   val fw=w*.8f;val fh=h*.92f
   if(on){gl.shader=RadialGradient(w/2,h*.6f,w*(.5f+.15f*f),0x66FF4A1F,0x00FF2D2D,Shader.TileMode.CLAMP);cv.drawCircle(w/2,h*.6f,w*.75f,gl)}
-  fl.shader=if(on)LinearGradient(0f,0f,0f,1f,intArrayOf(0xFFFFC23A.toInt(),EMBER,RED),null,Shader.TileMode.CLAMP) else null
+  val cols=intArrayOf(lite(EMBER),EMBER,RED)
+  fl.shader=if(on)LinearGradient(0f,0f,0f,1f,cols,null,Shader.TileMode.CLAMP) else null
   fl.color=0xFF2E2E33.toInt();inner.color=if(on)0xFFFFE08A.toInt() else 0xFF3A3A40.toInt()
   val sy=if(on)1f+.07f*f else 1f;val sx=if(on)1f-.04f*f else 1f
   cv.save();cv.translate(w/2,h);cv.scale(sx,sy);cv.translate(-fw/2,-fh);cv.scale(fw,fh)
@@ -62,6 +72,6 @@ class HeatView(c:Context):View(c){
  override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws);setMeasuredDimension(w,(w/53f*7).toInt())}
  override fun onDraw(cv:Canvas){val cell=width/53f;val g=cell*.18f;val r=cell*.25f
   for(i in 0 until 371){val col=i/7;val row=i%7;if(col>prog*53)continue;val v=d[i]
-   p.color=if(v<0)0xFF1C1C1F.toInt() else ev.evaluate(v/100f,0xFF4A1212.toInt(),0xFFFF5A1F.toInt()) as Int
+   p.color=if(v<0)0xFF1C1C1F.toInt() else ev.evaluate(v/100f,dim(RED),EMBER) as Int
    cv.drawRoundRect(RectF(col*cell,row*cell,col*cell+cell-g,row*cell+cell-g),r,r,p)}}
 }
