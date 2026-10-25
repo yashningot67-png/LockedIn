@@ -6,6 +6,7 @@ import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.*
+import android.util.Log
 import android.provider.Settings
 import android.text.InputType
 import android.view.*
@@ -20,7 +21,17 @@ class MainActivity:Activity(){
  private val tick=object:Runnable{override fun run(){render();H.postDelayed(this,30000)}}
  private val M=ViewGroup.LayoutParams.MATCH_PARENT;private val W=ViewGroup.LayoutParams.WRAP_CONTENT
  private val GREEN=0xFF39D98A.toInt()
- override fun onCreate(b:Bundle?){super.onCreate(b);N.ch(this)
+ private fun crashScreen(t:String){
+  val l=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(d(16f),d(48f),d(16f),d(24f));setBackgroundColor(BG)}
+  l.addView(tx("APP CRASH HUA - is screen ka screenshot bhej",16f,RED,true))
+  l.addView(TextView(this).apply{text=t;textSize=10f;setTextColor(TX);typeface=Typeface.MONOSPACE})
+  l.addView(Button(this).apply{text="Clear aur dobara try";setOnClickListener{Store.p(this@MainActivity).edit().remove("crash").commit();recreate()}})
+  setContentView(ScrollView(this).apply{setBackgroundColor(BG);addView(l)})}
+ override fun onCreate(b:Bundle?){super.onCreate(b)
+  val old=Store.p(this).getString("crash",null)
+  if(old!=null){crashScreen(old);return}
+  Thread.setDefaultUncaughtExceptionHandler{_,e->try{Store.p(applicationContext).edit().putString("crash",Log.getStackTraceString(e).take(2200)).commit()}catch(x:Exception){};Process.killProcess(Process.myPid())}
+  N.ch(this)
   window.statusBarColor=BG;window.navigationBarColor=BG
   ring=RingView(this);flame=FlameView(this);bars=BarsView(this);heat=HeatView(this)
   val sv=ScrollView(this).apply{setBackgroundColor(BG)}
@@ -28,7 +39,7 @@ class MainActivity:Activity(){
   if(Build.VERSION.SDK_INT>=33)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),1)
   Scheduler.all(this)}
  override fun onNewIntent(i:Intent){super.onNewIntent(i);setIntent(i)}
- override fun onResume(){super.onResume();H.removeCallbacks(tick);H.post(tick);if(intent.getBooleanExtra("audit",false)){intent.removeExtra("audit");audit()}}
+ override fun onResume(){super.onResume();if(!::root.isInitialized)return;H.removeCallbacks(tick);H.post(tick);if(intent.getBooleanExtra("audit",false)){intent.removeExtra("audit");audit()}}
  override fun onPause(){super.onPause();H.removeCallbacks(tick)}
  private fun d(v:Float)=dp(v).toInt()
  private fun bgd(c:Int,r:Float,st:Int=0)=GradientDrawable().apply{setColor(c);cornerRadius=dp(r);if(st!=0)setStroke(d(1f),st)}
