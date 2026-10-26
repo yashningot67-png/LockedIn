@@ -5,18 +5,21 @@ import android.os.*
 import android.media.*
 
 object Scheduler{
- fun all(c:Context){Store.tasks(c).forEach{at(c,it.id,it.h,it.m)};audit(c);evening(c)}
+ fun all(c:Context){Store.tasks(c).forEach{val dt=it.date;if(dt==""||(dt.startsWith("~")&&dt.substring(1)<=Store.day()))at(c,it.id,it.h,it.m) else atDate(c,if(dt.startsWith("~"))it.copy(date=dt.substring(1)) else it)};audit(c);evening(c)}
+ fun atDate(c:Context,t:Task){val p=t.date.split("-");if(p.size<3)return;val cal=java.util.Calendar.getInstance().apply{set(p[0].toInt(),p[1].toInt()-1,p[2].toInt(),t.h,t.m,0);set(java.util.Calendar.MILLISECOND,0)};if(cal.timeInMillis<=System.currentTimeMillis())return;sched(c,t.id,cal.timeInMillis)}
  fun evening(c:Context)=at(c,"evening",Store.p(c).getInt("evh",20),Store.p(c).getInt("evm",0))
  fun audit(c:Context)=at(c,"audit",Store.p(c).getInt("ah",22),Store.p(c).getInt("am",0))
  private fun pi(c:Context,id:String)=PendingIntent.getBroadcast(c,id.hashCode(),Intent(c,AlarmReceiver::class.java).putExtra("id",id),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
  fun at(c:Context,id:String,h:Int,m:Int){
   val cal=java.util.Calendar.getInstance().apply{set(java.util.Calendar.HOUR_OF_DAY,h);set(java.util.Calendar.MINUTE,m);set(java.util.Calendar.SECOND,0);set(java.util.Calendar.MILLISECOND,0);if(timeInMillis<=System.currentTimeMillis())add(java.util.Calendar.DAY_OF_YEAR,1)}
+  sched(c,id,cal.timeInMillis)}
+ fun sched(c:Context,id:String,whenMs:Long){
   val am=c.getSystemService(AlarmManager::class.java)
   val show=PendingIntent.getActivity(c,9,Intent(c,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE)
   try{
-   if(Build.VERSION.SDK_INT<31||am.canScheduleExactAlarms())am.setAlarmClock(AlarmManager.AlarmClockInfo(cal.timeInMillis,show),pi(c,id))
-   else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,cal.timeInMillis,pi(c,id))
-  }catch(e:SecurityException){am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,cal.timeInMillis,pi(c,id))}}
+   if(Build.VERSION.SDK_INT<31||am.canScheduleExactAlarms())am.setAlarmClock(AlarmManager.AlarmClockInfo(whenMs,show),pi(c,id))
+   else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,whenMs,pi(c,id))
+  }catch(e:SecurityException){am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,whenMs,pi(c,id))}}
  fun cancel(c:Context,id:String){c.getSystemService(AlarmManager::class.java).cancel(pi(c,id))}
 }
 object N{
@@ -42,7 +45,8 @@ class AlarmReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Inten
  if(id=="audit"){Scheduler.audit(c);N.auditNote(c);return}
  if(id=="evening"){Scheduler.evening(c);N.evening(c);return}
  val t=Store.tasks(c).firstOrNull{it.id==id}?:return
- Scheduler.at(c,t.id,t.h,t.m)
+ if(t.date!=""&&!t.date.startsWith("~")&&t.date!=Store.day())return
+ if(t.date==""||t.date.startsWith("~"))Scheduler.at(c,t.id,t.h,t.m)
  if(t.strict)c.startForegroundService(Intent(c,NagService::class.java)) else N.mini(c,t)}}
 class StartReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent){
  val id=i.getStringExtra("id")?:return
@@ -65,7 +69,7 @@ class NagService:Service(){
   getSystemService(PowerManager::class.java).newWakeLock(PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,"li:nag").acquire(10000)
   ring()
   getSystemService(NotificationManager::class.java).notify(1,N.nag(this@NagService,t))
-  getSystemService(Vibrator::class.java).vibrate(VibrationEffect.createWaveform(longArrayOf(0,500,250,500),-1))
+  if(Store.p(this@NagService).getBoolean("vib",true))getSystemService(Vibrator::class.java).vibrate(VibrationEffect.createWaveform(longArrayOf(0,500,250,500),-1))
   h.postDelayed(this,10000)}}
  override fun onBind(i:Intent?):IBinder?=null
  override fun onStartCommand(i:Intent?,f:Int,s:Int):Int{
