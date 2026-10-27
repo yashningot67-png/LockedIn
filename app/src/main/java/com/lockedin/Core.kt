@@ -25,6 +25,7 @@ object Scheduler{
 object N{
  fun ch(c:Context){val nm=c.getSystemService(NotificationManager::class.java)
   nm.createNotificationChannel(NotificationChannel("nag2","Strict task alerts",NotificationManager.IMPORTANCE_HIGH).apply{setSound(null,null);enableVibration(true)})
+  nm.createNotificationChannel(NotificationChannel("guard","App blocker",NotificationManager.IMPORTANCE_LOW))
   nm.createNotificationChannel(NotificationChannel("mini","Mini reminders",NotificationManager.IMPORTANCE_DEFAULT))}
  private fun open(c:Context,extra:String?=null)=PendingIntent.getActivity(c,7,Intent(c,MainActivity::class.java).apply{flags=Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP;if(extra!=null)putExtra(extra,true)},PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
  private fun act(c:Context,id:String,mode:String)=PendingIntent.getBroadcast(c,(id+mode).hashCode(),Intent(c,StartReceiver::class.java).putExtra("id",id).putExtra("mode",mode),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -51,8 +52,9 @@ class AlarmReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Inten
 class StartReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent){
  val id=i.getStringExtra("id")?:return
  if(i.getStringExtra("mode")=="start")Store.start(c,id) else Store.skip(c,id)
- c.getSystemService(NotificationManager::class.java).cancel(1)}}
-class BootReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent){Scheduler.all(c);if(Store.pending(c)!=null)c.startForegroundService(Intent(c,NagService::class.java))}}
+ c.stopService(Intent(c,NagService::class.java));c.getSystemService(NotificationManager::class.java).cancel(1)
+ if(Store.pending(c)!=null)c.startForegroundService(Intent(c,NagService::class.java))}}
+class BootReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent){Scheduler.all(c);GuardService.ensure(c);if(Store.pending(c)!=null)c.startForegroundService(Intent(c,NagService::class.java))}}
 class NagService:Service(){
  private val h=Handler(Looper.getMainLooper())
  private var mp:MediaPlayer?=null

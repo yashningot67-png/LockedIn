@@ -55,6 +55,7 @@ object Store{
  fun useCheat(c:Context){val n=p(c).getInt("cheatn",0);if(n>0)p(c).edit().putInt("cheatn",n-1).putLong("cheat_until",System.currentTimeMillis()+3600000L).apply()}
  fun reason(c:Context,pkg:String):String?{if(cheatOn(c))return null
   if(locks(c).optLong(pkg,0)>System.currentTimeMillis())return "lock"
+  if(p(c).getLong("testlock",0)>System.currentTimeMillis()&&apps(c).any{it.second==pkg})return "lock"
   if(apps(c).any{it.second==pkg}){if(focusOn(c))return "focus";if(sunsetOn(c))return "sunset"}
   return null}
  val RANKS=listOf("FREEBIE" to 0,"ROOKIE" to 100,"WARRIOR" to 300,"ENFORCER" to 650,"DOMINATOR" to 1100,"PREDATOR" to 1800,"ELITE" to 2800,"OVERLORD" to 4200,"APEX" to 6000,"VENGEANCE" to 8500,"CONQUEROR" to 10000)
@@ -107,4 +108,17 @@ object Store{
    for(k in o.keys()){val j=o.getJSONObject(k)
     when(j.getString("t")){"i"->e.putInt(k,j.getInt("v"));"l"->e.putLong(k,j.getLong("v"));"b"->e.putBoolean(k,j.getBoolean("v"));else->e.putString(k,j.getString("v"))}}
    e.apply();return true}catch(x:Exception){return false}}
+
+ fun goalCats(c:Context):List<String>{val g=goal(c).lowercase();val o=ArrayList<String>()
+  if(listOf("engineer","job","career","software","security","developer","google","microsoft","interview","exam","study","naukri","padhai","coding","skill","upsc","college","नौकरी","पढ़ाई","करियर").any{g.contains(it)})o.add("career")
+  if(listOf("fit","gym","body","muscle","weight","workout","health","physique","bulk","strong","sharir","फिट","जिम","शरीर").any{g.contains(it)})o.add("fit")
+  if(listOf("business","startup","money","income","earn","sales","paisa","व्यापार","बिज़नेस","पैसा").any{g.contains(it)})o.add("money")
+  return o}
+ fun pattern(c:Context):Pair<Int,Int>?{val b=IntArray(5);var tot=0
+  for(ago in 0..89){val s=p(c).getString("log_"+key(ago),null)?:continue;val o=JSONObject(s);for(k in o.keys()){val e=o.getJSONObject(k);if(e.has("e")&&e.has("s")){val cl=Calendar.getInstance();cl.timeInMillis=e.getLong("s");val h=cl.get(Calendar.HOUR_OF_DAY);b[if(h in 5..8)0 else if(h in 9..11)1 else if(h in 12..16)2 else if(h in 17..20)3 else 4]++;tot++}}}
+  if(tot==0)return null
+  var wd=0;var wdn=0;var we=0;var wen=0
+  for(ago in 0..89){val v=p(c).getInt("h_"+key(ago),-1);if(v<0)continue;val cl=Calendar.getInstance();cl.add(Calendar.DAY_OF_YEAR,-ago);val dw=cl.get(Calendar.DAY_OF_WEEK);if(dw==1||dw==7){we+=v;wen++}else{wd+=v;wdn++}}
+  val dt=if(wen>0&&(wdn==0||we/wen>wd/maxOf(1,wdn)))1 else 0
+  return b.indices.maxByOrNull{b[it]}!! to dt}
 }
