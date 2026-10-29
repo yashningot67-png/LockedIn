@@ -55,16 +55,16 @@ class MainActivity:Activity(){
  private fun lab(s:String)=tx(s,12f,MUT,true).apply{letterSpacing=.16f;setPadding(0,d(14f),0,d(8f))}
  private fun card(stroke:Int=LINE)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;background=bgd(CARD,16f,stroke);setPadding(d(16f),d(14f),d(16f),d(14f));layoutParams=LinearLayout.LayoutParams(M,W).apply{bottomMargin=d(12f)}}
  private fun touch(v:View){v.setOnTouchListener{x,e->when(e.action){MotionEvent.ACTION_DOWN->x.animate().scaleX(.97f).scaleY(.97f).setDuration(70).start();MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->x.animate().scaleX(1f).scaleY(1f).setDuration(110).start()};false}}
- private fun btn(s:String,primary:Boolean=true,f:()->Unit)=Button(this).apply{text=s;isAllCaps=false;textSize=14f;setTextColor(TX);typeface=Typeface.create("sans-serif-condensed",Typeface.BOLD);stateListAnimator=null
-  background=if(primary)bgd(RED,14f) else bgd(CARD,14f,0xFF2C2C30.toInt());layoutParams=LinearLayout.LayoutParams(M,d(48f)).apply{bottomMargin=d(8f)};setOnClickListener{hap();f()};touch(this)}
+ private fun btn(s:String,primary:Boolean=true,f:()->Unit)=Button(this).apply{text=s;isAllCaps=false;textSize=14f;setTextColor(if(primary)Color.WHITE else TX);typeface=Typeface.create("sans-serif-condensed",Typeface.BOLD);stateListAnimator=null
+  background=if(primary)bgd(RED,14f) else bgd(CARD,14f,OUT);layoutParams=LinearLayout.LayoutParams(M,d(48f)).apply{bottomMargin=d(8f)};setOnClickListener{hap();f()};touch(this)}
  private fun small(s:String,f:()->Unit)=tx(s,12f,Color.WHITE,true).apply{setPadding(d(14f),d(8f),d(14f),d(8f));background=bgd(RED,10f);setOnClickListener{f()};touch(this)}
  private fun sw(on:Boolean,f:(Boolean)->Unit)=Switch(this).apply{isChecked=on;val st=arrayOf(intArrayOf(android.R.attr.state_checked),intArrayOf())
-  thumbTintList=ColorStateList(st,intArrayOf(Color.WHITE,0xFF9A9AA2.toInt()));trackTintList=ColorStateList(st,intArrayOf(RED,0xFF2C2C30.toInt()));setOnCheckedChangeListener{_,v->hap();f(v)}}
+  thumbTintList=ColorStateList(st,intArrayOf(Color.WHITE,0xFF9A9AA2.toInt()));trackTintList=ColorStateList(st,intArrayOf(RED,OUT));setOnCheckedChangeListener{_,v->hap();f(v)}}
  private fun hap(){if(pr().getBoolean("hap",true))try{getSystemService(Vibrator::class.java).vibrate(VibrationEffect.createOneShot(22,90))}catch(e:Exception){}}
  private fun detach(v:View){(v.parent as? ViewGroup)?.removeView(v)}
  private fun put(v:View){root.addView(v);items.add(v)}
  private fun toast(s:String)=Toast.makeText(this,s,Toast.LENGTH_LONG).show()
- private fun dlg()=AlertDialog.Builder(this,android.R.style.Theme_DeviceDefault_Dialog_Alert)
+ private fun dlg()=AlertDialog.Builder(this,if(LIGHT)android.R.style.Theme_DeviceDefault_Light_Dialog_Alert else android.R.style.Theme_DeviceDefault_Dialog_Alert)
  private fun guardReady()=pr().getBoolean("guard",false)&&Perm.usage(this)&&Perm.overlay(this)
  private var guardAsk=false
  private fun guardFlow(){guardAsk=true;checkGuard()}
@@ -73,11 +73,14 @@ class MainActivity:Activity(){
   if(!Perm.overlay(this)){gdlg(2,"g_o"){system(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)};return}
   guardAsk=false;GuardService.ensure(this);toast(t("g_on"));render()}
  private fun gdlg(n:Int,k:String,go:()->Unit){dlg().setTitle(L.f(this,"g_step","n" to n.toString())).setMessage(t(k)).setPositiveButton(t("g_open")){_,_->go()}.setNegativeButton(t("back")){_,_->guardAsk=false;pr().edit().putBoolean("guard",false).apply();render()}.setCancelable(false).show()}
- private fun themeName():String{val th=pr().getInt("theme",-1);return if(th<0)t("themeauto") else Store.RANKS[minOf(th,Store.rankIdx(this))].first}
- private fun themePick(){val n=Store.rankIdx(this);val names=arrayOf(t("themeauto"))+Array(n+1){Store.RANKS[it].first};dlg().setTitle(t("theme")).setItems(names){_,i->pr().edit().putInt("theme",i-1).apply();render()}.show()}
+ private fun themeName():String{val th=pr().getInt("theme",-1);return if(th==-2)t("themelight") else if(th<0)t("themeauto") else Store.RANKS[minOf(th,Store.rankIdx(this))].first}
+ private fun themePick(){val n=Store.rankIdx(this);val names=arrayOf(t("themeauto"),t("themelight"))+Array(n+1){Store.RANKS[it].first};dlg().setTitle(t("theme")).setItems(names){_,i->pr().edit().putInt("theme",if(i==0)-1 else if(i==1)-2 else i-2).apply();render()}.show()}
+ private fun ampm(h:Int,m:Int)="%d:%02d %s".format(if(h%12==0)12 else h%12,m,if(h<12)"AM" else "PM")
+ private fun bk(h:Int)=if(h in 5..11)"m" else if(h in 12..16)"a" else if(h in 17..20)"e" else "n"
+ private fun delTask(id:String){Store.saveTasks(this,Store.tasks(this).filter{x->x.id!=id});Scheduler.cancel(this,id)}
  private fun fmt(h:Int,m:Int)="%02d:%02d".format(h,m)
  private fun timeStr(ms:Long)=SimpleDateFormat("d MMM, h:mm a",Locale.getDefault()).format(Date(ms))
- private fun pick(h:Int,m:Int,f:(Int,Int)->Unit){TimePickerDialog(this,android.R.style.Theme_DeviceDefault_Dialog,{_,hh,mm->f(hh,mm)},h,m,true).show()}
+ private fun pick(h:Int,m:Int,f:(Int,Int)->Unit){TimePickerDialog(this,if(LIGHT)android.R.style.Theme_DeviceDefault_Light_Dialog else android.R.style.Theme_DeviceDefault_Dialog,{_,hh,mm->f(hh,mm)},h,m,android.text.format.DateFormat.is24HourFormat(this)).show()}
  private fun resumeNag(){if(Store.pending(this)!=null)startForegroundService(Intent(this,NagService::class.java))}
  private fun system(a:String,pkg:Boolean=true){try{startActivity(Intent(a).apply{if(pkg)data=Uri.parse("package:$packageName")})}catch(e:Exception){toast("Open Settings manually")}}
  private fun row(title:String,desc:String,status:String,col:Int=MUT,f:(()->Unit)?=null)=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(10f),0,d(10f))
@@ -88,7 +91,7 @@ class MainActivity:Activity(){
 
  // ---------- render ----------
  private fun render(celebrate:Boolean=false){
-  REDUCE=pr().getBoolean("reduce",false);val th=pr().getInt("theme",-1);applyTheme(if(th>=0)minOf(th,Store.rankIdx(this)) else Store.rankIdx(this));window.statusBarColor=BG;window.navigationBarColor=BG;sv.setBackgroundColor(BG);shell.setBackgroundColor(BG)
+  REDUCE=pr().getBoolean("reduce",false);val th=pr().getInt("theme",-1);applyTheme(if(th>=0)minOf(th,Store.rankIdx(this)) else Store.rankIdx(this),th==-2);window.statusBarColor=BG;window.navigationBarColor=BG;window.decorView.systemUiVisibility=if(LIGHT)(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR) else 0;sv.setBackgroundColor(BG);shell.setBackgroundColor(BG)
   items.clear();root.removeAllViews()
   val onb=!pr().getBoolean("onb",false)
   if(onb||page=="profile"){nav.visibility=View.GONE;profilePage(onb);return}
@@ -105,6 +108,7 @@ class MainActivity:Activity(){
   if(last<0||rk<last)pr().edit().putInt("rk",rk).putInt("xpseen",xp).apply() else if(rk>last){val e=xp-pr().getInt("xpseen",0);pr().edit().putInt("rk",rk).putInt("xpseen",xp).apply();rankUp(rk,e)}}
 
  private fun homeTab(celebrate:Boolean){
+  put(tx(L.greet(this),16f,TX,true).apply{setPadding(0,0,0,d(10f))})
   put(card().apply{addView(tx(t("dose"),11f,MUT,true).apply{letterSpacing=.2f});addView(tx(L.dose(this@MainActivity),15f).apply{setPadding(0,d(6f),0,0)})})
   val (dn,tt)=Store.liveProgress(this);ring.label=t("today");ring.set(if(tt==0)0f else dn*100f/tt);flame.set(Store.streak(this),celebrate);detach(ring);detach(flame)
   put(card().apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
@@ -129,20 +133,21 @@ class MainActivity:Activity(){
   val lk=Store.locks(this);lk.keys().forEach{k->val u=lk.getLong(k);if(u>System.currentTimeMillis())put(card(RED).apply{addView(tx(t("lockedfor")+": "+Store.label(this@MainActivity,k),15f,RED,true));addView(tx(timeStr(u),12f,MUT))})}
   if(Store.cheatOn(this))put(card(GREEN).apply{addView(tx(t("cheaton"),14f,GREEN,true))})
   // missions
-  put(lab(t("mission")));val log=Store.log(this);val td=Store.todays(this).sortedBy{it.mins}
+  put(lab(t("mission")));val log=Store.log(this);val td=Store.todays(this).filter{it.strict||log.optJSONObject(it.id)?.has("fired")!=true}.sortedBy{it.mins}
   if(td.isEmpty())put(card().apply{gravity=Gravity.CENTER;setPadding(d(16f),d(24f),d(16f),d(24f));addView(tx(t("empty1"),18f,TX,true).apply{gravity=Gravity.CENTER});addView(tx(t("empty2"),13f,MUT).apply{gravity=Gravity.CENTER;setPadding(0,d(6f),0,0)})})
-  td.forEach{tk->val e=log.optJSONObject(tk.id);val done=e?.has("e")==true;val run=e?.has("s")==true&&!done;val skp=e?.has("x")==true
+  if(td.isNotEmpty())for(sk in listOf("m","a","e","n")){val g=td.filter{bk(it.h)==sk};put(lab(t("sec_"+sk)));if(g.isEmpty())put(tx(t("none_sched"),12f,MUT).apply{setPadding(0,0,0,d(8f))})
+  g.forEach{tk->val e=log.optJSONObject(tk.id);val done=e?.has("e")==true;val run=e?.has("s")==true&&!done;val skp=e?.has("x")==true
    put(card().apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
-    addView(tx(if(done)"✓" else "",15f,Color.WHITE,true).apply{gravity=Gravity.CENTER;background=GradientDrawable().apply{shape=GradientDrawable.OVAL;if(done)setColor(GREEN) else setStroke(d(2f),if(run)RED else 0xFF3A3A40.toInt())}
+    addView(tx(if(done)"✓" else "",15f,Color.WHITE,true).apply{gravity=Gravity.CENTER;background=GradientDrawable().apply{shape=GradientDrawable.OVAL;if(done)setColor(GREEN) else setStroke(d(2f),if(run)RED else MISS)}
      if(popId==tk.id){scaleX=.3f;scaleY=.3f;animate().scaleX(1f).scaleY(1f).setInterpolator(OvershootInterpolator()).setDuration(380).start();popId=""}},LinearLayout.LayoutParams(d(28f),d(28f)))
-    addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;setPadding(d(14f),0,d(8f),0);addView(tx(tk.title,16f,TX,true));addView(tx(tk.time+(if(tk.strict)"  •  "+tk.dur+" "+t("strictmin") else "  •  "+t("minirem")),12f,MUT))},LinearLayout.LayoutParams(0,W,1f))
+    addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;setPadding(d(14f),0,d(8f),0);addView(tx(tk.title,16f,TX,true));addView(tx(ampm(tk.h,tk.m)+(if(tk.strict)" - "+ampm((tk.mins+tk.dur)%1440/60,(tk.mins+tk.dur)%60) else "  •  "+t("minirem")),12f,MUT))},LinearLayout.LayoutParams(0,W,1f))
     val st:View=when{!tk.strict->tx(t("mini"),11f,MUT,true);skp->tx(t("skipped"),11f,MUT,true);done->tx(t("done"),12f,GREEN,true)
-     run->small(t("complete")){Store.finish(this@MainActivity,tk.id);popId=tk.id;render()}
+     run->if(Store.nowMin()>=minOf(1439,tk.mins+tk.dur))small(t("complete")){Store.finish(this@MainActivity,tk.id);popId=tk.id;render()} else tx(L.f(this@MainActivity,"endsat","t" to ampm((tk.mins+tk.dur)%1440/60,(tk.mins+tk.dur)%60)),11f,MUT,true)
      Store.nowMin()>=tk.mins->small(t("start")){Store.start(this@MainActivity,tk.id);stopService(Intent(this@MainActivity,NagService::class.java));getSystemService(NotificationManager::class.java).cancel(1);resumeNag();render()}
      else->tx(t("upcoming"),11f,MUT,true)}
-    addView(st);setOnLongClickListener{Store.saveTasks(this@MainActivity,Store.tasks(this@MainActivity).filter{x->x.id!=tk.id});Scheduler.cancel(this@MainActivity,tk.id);render();true}})}
+    addView(st);setOnLongClickListener{if(tk.strict&&!done&&!skp)toast(t("nodel")) else{delTask(tk.id);render()};true}})}}
   val tm=Store.tomorrows(this).sortedBy{it.mins}
-  if(tm.isNotEmpty()){put(lab(t("tomorrow")));put(card().apply{tm.forEach{tk->addView(row(tk.title,tk.time+"  •  "+tk.dur+" min","",MUT){Store.saveTasks(this@MainActivity,Store.tasks(this@MainActivity).filter{x->x.id!=tk.id});Scheduler.cancel(this@MainActivity,tk.id);render()})}})}
+  if(tm.isNotEmpty()){put(lab(t("tomorrow")));put(card().apply{tm.forEach{tk->addView(row(tk.title,tk.time+"  •  "+tk.dur+" min","",MUT){delTask(tk.id);render()})}})}
   put(btn(t("addtask")){addTask()})}
  private fun appIcon(pkg:String,sz:Float)=ImageView(this).apply{try{setImageDrawable(packageManager.getApplicationIcon(pkg))}catch(e:Exception){};layoutParams=LinearLayout.LayoutParams(d(sz),d(sz)).apply{marginEnd=d(8f)}}
 
@@ -151,7 +156,7 @@ class MainActivity:Activity(){
   bars.set(IntArray(7){Store.pctAt(this,6-it)},List(7){i->val cl=Calendar.getInstance();cl.add(Calendar.DAY_OF_YEAR,-(6-i));fm.format(cl.time).take(2)});heat.set(IntArray(371){Store.pctAt(this,370-it)});detach(bars);detach(heat)
   put(lab(t("weekly")));put(card().apply{addView(bars)})
   put(lab(t("yearly")));put(card().apply{addView(heat);val lg=listOf(t("lg1"),t("lg2"),t("lg3"));addView(LinearLayout(this@MainActivity).apply{setPadding(0,d(10f),0,0)
-   for((i,c) in listOf(GREEN,AMBER,0xFF3A3A40.toInt()).withIndex()){addView(View(this@MainActivity).apply{background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(c)}},LinearLayout.LayoutParams(d(8f),d(8f)).apply{marginEnd=d(6f);gravity=Gravity.CENTER_VERTICAL});addView(tx(lg.getOrElse(i){""},11f,MUT).apply{setPadding(0,0,d(14f),0)})}})})
+   for((i,c) in listOf(GREEN,AMBER,MISS).withIndex()){addView(View(this@MainActivity).apply{background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(c)}},LinearLayout.LayoutParams(d(8f),d(8f)).apply{marginEnd=d(6f);gravity=Gravity.CENTER_VERTICAL});addView(tx(lg.getOrElse(i){""},11f,MUT).apply{setPadding(0,0,d(14f),0)})}})})
   put(lab(t("pattern")));put(card().apply{val pt=Store.pattern(this@MainActivity)
    addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;addView(TargetIcon(this@MainActivity),LinearLayout.LayoutParams(d(56f),d(56f)))
     addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;setPadding(d(16f),0,0,0)
@@ -164,7 +169,7 @@ class MainActivity:Activity(){
    addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;setPadding(d(14f),0,0,0);addView(tx(t("rank"),10f,MUT,true).apply{letterSpacing=.16f});addView(tx(Store.rankName(this@MainActivity),22f,TX,true))
     addView(tx("XP "+Store.xp(this@MainActivity)+(if(i<Store.RANKS.lastIndex)" / "+Store.RANKS[i+1].second else ""),12f,MUT))},LinearLayout.LayoutParams(0,W,1f))
    if(i<Store.RANKS.lastIndex)addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.END;addView(tx(t("next"),10f,MUT,true));addView(tx(Store.RANKS[i+1].first,13f,TX,true))})})
-   addView(LinearLayout(this@MainActivity).apply{setPadding(0,d(12f),0,d(10f));addView(View(this@MainActivity).apply{background=bgd(RED,3f)},LinearLayout.LayoutParams(0,d(6f),rp.toFloat()));addView(View(this@MainActivity).apply{background=bgd(0xFF26262A.toInt(),3f)},LinearLayout.LayoutParams(0,d(6f),(100-rp).toFloat()))})
+   addView(LinearLayout(this@MainActivity).apply{setPadding(0,d(12f),0,d(10f));addView(View(this@MainActivity).apply{background=bgd(RED,3f)},LinearLayout.LayoutParams(0,d(6f),rp.toFloat()));addView(View(this@MainActivity).apply{background=bgd(TRACK,3f)},LinearLayout.LayoutParams(0,d(6f),(100-rp).toFloat()))})
    addView(LinearLayout(this@MainActivity).apply{
     addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("beststreak"),10f,MUT,true));addView(tx(Store.best(this@MainActivity).toString()+" "+t("days"),15f,TX,true))},LinearLayout.LayoutParams(0,W,1f))
     addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("curstreak"),10f,MUT,true));addView(tx(Store.streak(this@MainActivity).toString()+" "+t("days"),15f,TX,true))},LinearLayout.LayoutParams(0,W,1f))})}}
@@ -179,7 +184,7 @@ class MainActivity:Activity(){
    addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;setPadding(d(14f),0,d(8f),0)
     addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;addView(tx("%02d.  ".format(k+1),14f,if(k==cur)RED else MUT,true));addView(tx(r.first,16f,if(k<=cur)TX else MUT,true));if(k==cur)addView(tx("  "+t("current"),9f,RED,true))})
     addView(tx(t("rt"+k),11f,MUT))
-    if(k==cur&&k<Store.RANKS.lastIndex)addView(LinearLayout(this@MainActivity).apply{setPadding(0,d(8f),0,0);val rp=Store.rankPct(this@MainActivity);addView(View(this@MainActivity).apply{background=bgd(RED,3f)},LinearLayout.LayoutParams(0,d(5f),rp.toFloat()));addView(View(this@MainActivity).apply{background=bgd(0xFF26262A.toInt(),3f)},LinearLayout.LayoutParams(0,d(5f),(100-rp).toFloat()))})},LinearLayout.LayoutParams(0,W,1f))
+    if(k==cur&&k<Store.RANKS.lastIndex)addView(LinearLayout(this@MainActivity).apply{setPadding(0,d(8f),0,0);val rp=Store.rankPct(this@MainActivity);addView(View(this@MainActivity).apply{background=bgd(RED,3f)},LinearLayout.LayoutParams(0,d(5f),rp.toFloat()));addView(View(this@MainActivity).apply{background=bgd(TRACK,3f)},LinearLayout.LayoutParams(0,d(5f),(100-rp).toFloat()))})},LinearLayout.LayoutParams(0,W,1f))
    addView(tx(r.second.toString()+" XP",12f,MUT));addView(tx(if(k<=cur)"  ✓" else "",15f,GREEN,true))})}}
 
  // ---------- settings ----------
@@ -204,7 +209,7 @@ class MainActivity:Activity(){
   grp(t("set_apps")){Store.apps(this@MainActivity).forEach{a->val u=Store.locks(this@MainActivity).optLong(a.second,0)
    addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,d(8f));addView(appIcon(a.second,34f).apply{(layoutParams as LinearLayout.LayoutParams).marginEnd=d(12f)})
     addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(a.first,15f,TX,true));addView(tx(if(u>System.currentTimeMillis())t("st_locked").replace("{t}",timeStr(u)) else if(p.getBoolean("dw",true)||p.getBoolean("ss",false))t("st_auto") else t("st_ready"),11f,if(u>System.currentTimeMillis())RED else MUT))},LinearLayout.LayoutParams(0,W,1f))
-    addView(tx("✕",16f,MUT,true).apply{setPadding(d(12f),d(6f),d(4f),d(6f));setOnClickListener{Store.saveApps(this@MainActivity,Store.apps(this@MainActivity).filter{x->x.second!=a.second});render()}})})}
+    addView(tx("✕",16f,MUT,true).apply{setPadding(d(12f),d(6f),d(4f),d(6f));setOnClickListener{if(Store.restricting(this@MainActivity))toast(t("cantedit")) else{Store.saveApps(this@MainActivity,Store.apps(this@MainActivity).filter{x->x.second!=a.second});render()}}})})}
    addView(btn(t("addapp"),false){pickApp()});addView(btn(t("testlock"),false){pr().edit().putLong("testlock",System.currentTimeMillis()+60000).apply();toast(t("teston"))})}
   grp(t("blocker")){addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("blocker"),15f,TX,true));addView(tx(t("blocker_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("guard",false)){on->p.edit().putBoolean("guard",on).apply();if(on)guardFlow() else{stopService(Intent(this@MainActivity,GuardService::class.java));render()}})})}
   grp(t("set_perm")){val ks=listOf("n","x","f","b","u","o");var allOk=true
@@ -214,7 +219,7 @@ class MainActivity:Activity(){
    addView(btn(t("backup"),false){startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,Store.backup(this@MainActivity)),"Backup"));render()})
    addView(btn(t("restore"),false){val cm=getSystemService(ClipboardManager::class.java);val tt=cm.primaryClip?.getItemAt(0)?.text?.toString()?:""
     if(Store.restore(this@MainActivity,tt)){Scheduler.all(this@MainActivity);toast(t("restok"));render()}else toast(t("restno"))})}
-  grp(t("set_pref")){addView(row(t("theme"),"",themeName()){themePick()});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,d(8f));addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("reduce"),15f,TX,true));addView(tx(t("reduce_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("reduce",false)){p.edit().putBoolean("reduce",it).apply();render()})});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("hap"),15f,TX,true));addView(tx(t("hap_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("hap",true)){p.edit().putBoolean("hap",it).apply()})})}}
+  grp(t("set_pref")){addView(row(t("theme"),"",themeName()){themePick()});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,d(8f));addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("reduce"),15f,TX,true));addView(tx(t("reduce_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("reduce",false)){p.edit().putBoolean("reduce",it).apply();render()})});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,d(8f));addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("mot"),15f,TX,true));addView(tx(t("mot_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("mot",true)){p.edit().putBoolean("mot",it).apply();Scheduler.all(this@MainActivity)})});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("hap"),15f,TX,true));addView(tx(t("hap_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("hap",true)){p.edit().putBoolean("hap",it).apply()})})}}
 
  // ---------- profile ----------
  private fun saveProfile(){val e=pr().edit();nEt?.let{e.putString("name",it.text.toString().trim().ifBlank{"Yash"})};gEt?.let{e.putString("goal",it.text.toString().trim().ifBlank{"my goal"})};e.apply()}
@@ -245,16 +250,22 @@ class MainActivity:Activity(){
 
  private fun addTask(){
   val l=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(40,20,40,0)}
-  val tt=EditText(this).apply{hint=t("taskph")};val dd=EditText(this).apply{hint=t("minutes");inputType=InputType.TYPE_CLASS_NUMBER;setText("60")};val s=CheckBox(this).apply{text=t("strictcb");isChecked=true}
-  val rt=RadioButton(this).apply{text=t("dayt");id=View.generateViewId();isChecked=true};val rn=RadioButton(this).apply{text=t("dayn");id=View.generateViewId()}
-  val rg=RadioGroup(this).apply{orientation=LinearLayout.HORIZONTAL;addView(rt);addView(rn)};val rp=CheckBox(this).apply{text=t("repeat")}
-  l.addView(tt);l.addView(dd);l.addView(rg);l.addView(rp);l.addView(s)
-  dlg().setTitle(t("newtask")).setView(l).setPositiveButton(t("picktime")){_,_->
-   pick(8,0){h,m->val tom=rn.isChecked;val passed=h*60+m<=Store.nowMin()
-    if(!tom&&!rp.isChecked&&passed){toast(t("pasttime"));return@pick}
-    val date=if(rp.isChecked)(if(tom||passed)"~"+Store.key(-1) else "") else if(tom)Store.key(-1) else Store.day()
-    val k=Task("t"+System.currentTimeMillis(),tt.text.toString().ifBlank{"Task"},h,m,dd.text.toString().toIntOrNull()?:30,s.isChecked,date)
-    Store.saveTasks(this,Store.tasks(this)+k);Scheduler.all(this);render()}}.show()}
+  val tt=EditText(this).apply{hint=t("taskph");setTextColor(TX);setHintTextColor(MUT)}
+  var h1=9;var m1=0;var h2=10;var m2=0
+  val bf=Button(this);val bt=Button(this);fun upd(){bf.text=t("from")+": "+ampm(h1,m1);bt.text=t("to")+": "+ampm(h2,m2)};upd()
+  bf.setOnClickListener{pick(h1,m1){a,b->h1=a;m1=b;if(h2*60+m2<=h1*60+m1){val e=minOf(1439,h1*60+m1+60);h2=e/60;m2=e%60};upd()}}
+  bt.setOnClickListener{pick(h2,m2){a,b->h2=a;m2=b;upd()}}
+  val rt=RadioButton(this).apply{text=t("dayt");id=View.generateViewId();isChecked=true;setTextColor(TX)};val rn=RadioButton(this).apply{text=t("dayn");id=View.generateViewId();setTextColor(TX)}
+  val rg=RadioGroup(this).apply{orientation=LinearLayout.HORIZONTAL;addView(rt);addView(rn)};val rp=CheckBox(this).apply{text=t("repeat");setTextColor(TX)};val s=CheckBox(this).apply{text=t("strictcb");isChecked=true;setTextColor(TX)}
+  l.addView(tt);l.addView(LinearLayout(this).apply{addView(bf,LinearLayout.LayoutParams(0,W,1f));addView(bt,LinearLayout.LayoutParams(0,W,1f))});l.addView(rg);l.addView(rp);l.addView(s)
+  val dl=dlg().setTitle(t("newtask")).setView(l).setNegativeButton(t("back"),null).setPositiveButton(t("addbtn"),null).create();dl.show()
+  dl.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+   val st=h1*60+m1;val en=h2*60+m2;if(en<=st){toast(t("badtime"));return@setOnClickListener}
+   val tom=rn.isChecked;val passed=st<=Store.nowMin()
+   if(!tom&&!rp.isChecked&&passed){toast(t("pasttime"));return@setOnClickListener}
+   val date=if(rp.isChecked)(if(tom||passed)"~"+Store.key(-1) else "") else if(tom)Store.key(-1) else Store.day()
+   val k=Task("t"+System.currentTimeMillis(),tt.text.toString().ifBlank{"Task"},h1,m1,en-st,s.isChecked,date)
+   Store.saveTasks(this,Store.tasks(this)+k);Scheduler.all(this);dl.dismiss();render()}}
  private fun pickApp(){
   if(Store.apps(this).size>=5){toast(t("max5"));return}
   val pm=packageManager;val bad=listOf("com.android.settings","com.android.phone","com.android.dialer","com.google.android.dialer","com.android.emergency")

@@ -31,7 +31,7 @@ class GuardService:Service(){
  private fun check(){val pkg=fg()?:return;if(pkg==packageName)return
   val r=Store.reason(this,pkg)?:return;val now=System.currentTimeMillis();if(pkg==last&&now-lastAt<2500)return;last=pkg;lastAt=now
   startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-  val m=when(r){"lock"->L.f(this,"b_lock","a" to Store.label(this,pkg),"g" to L.theme(this));"focus"->L.t(this,"b_focus");else->L.t(this,"b_sun")}
+  val m=when(r){"lock"->L.f(this,"b_lock","a" to Store.label(this,pkg),"g" to L.theme(this));"task"->L.t(this,"b_task");"focus"->L.t(this,"b_focus");else->L.t(this,"b_sun")}
   try{val wm=getSystemService(WindowManager::class.java);ov?.let{wm.removeView(it)}
    val v=TextView(this).apply{text=m;setTextColor(Color.WHITE);textSize=20f;gravity=Gravity.CENTER;setBackgroundColor(0xEE0A0A0B.toInt());setPadding(60,60,60,60)}
    wm.addView(v,WindowManager.LayoutParams(-1,-1,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,PixelFormat.TRANSLUCENT));ov=v

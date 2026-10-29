@@ -56,9 +56,9 @@ object Store{
  fun reason(c:Context,pkg:String):String?{if(cheatOn(c))return null
   if(locks(c).optLong(pkg,0)>System.currentTimeMillis())return "lock"
   if(p(c).getLong("testlock",0)>System.currentTimeMillis()&&apps(c).any{it.second==pkg})return "lock"
-  if(apps(c).any{it.second==pkg}){if(focusOn(c))return "focus";if(sunsetOn(c))return "sunset"}
+  if(apps(c).any{it.second==pkg}){if(taskBlock(c))return "task";if(focusOn(c))return "focus";if(sunsetOn(c))return "sunset"}
   return null}
- val RANKS=listOf("FREEBIE" to 0,"ROOKIE" to 100,"WARRIOR" to 300,"ENFORCER" to 650,"DOMINATOR" to 1100,"PREDATOR" to 1800,"ELITE" to 2800,"OVERLORD" to 4200,"APEX" to 6000,"VENGEANCE" to 8500,"CONQUEROR" to 10000)
+ val RANKS=listOf("FREEBIE" to 0,"ROOKIE" to 100,"WARRIOR" to 300,"ENFORCER" to 650,"DOMINATOR" to 1100,"PREDATOR" to 1800,"ELITE" to 2800,"OVERLORD" to 4200,"APEX" to 6000,"VENGEANCE" to 8500,"CONQUEROR" to 15000)
  fun xp(c:Context)=p(c).getInt("xp",0)
  fun addXp(c:Context,n:Int){val i=rankIdx(c);val floor=if(i>0)RANKS[i-1].second else 0;val v=if(n<0)maxOf(floor,xp(c)+n) else xp(c)+n;p(c).edit().putInt("xp",maxOf(0,v)).apply()}
  fun rankIdx(c:Context):Int{val x=xp(c);return RANKS.indexOfLast{x>=it.second}}
@@ -121,4 +121,9 @@ object Store{
   for(ago in 0..89){val v=p(c).getInt("h_"+key(ago),-1);if(v<0)continue;val cl=Calendar.getInstance();cl.add(Calendar.DAY_OF_YEAR,-ago);val dw=cl.get(Calendar.DAY_OF_WEEK);if(dw==1||dw==7){we+=v;wen++}else{wd+=v;wdn++}}
   val dt=if(wen>0&&(wdn==0||we/wen>wd/maxOf(1,wdn)))1 else 0
   return b.indices.maxByOrNull{b[it]}!! to dt}
+
+ fun taskBlock(c:Context):Boolean{val l=log(c);val n=nowMin();if(p(c).getBoolean("aud_"+day(),false))return false
+  return todays(c).any{it.strict&&it.mins<=n&&l.optJSONObject(it.id).let{e->e==null||(!e.has("e")&&!e.has("x"))}}}
+ fun locksActive(c:Context):Boolean{val l=locks(c);return l.keys().asSequence().any{l.optLong(it,0)>System.currentTimeMillis()}}
+ fun restricting(c:Context)=focusOn(c)||sunsetOn(c)||taskBlock(c)||locksActive(c)||p(c).getLong("testlock",0)>System.currentTimeMillis()
 }
