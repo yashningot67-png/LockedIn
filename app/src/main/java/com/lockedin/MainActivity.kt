@@ -113,9 +113,9 @@ class MainActivity:Activity(){
   val (dn,tt)=Store.liveProgress(this);ring.label=t("today");ring.set(if(tt==0)0f else dn*100f/tt);flame.tint=Store.rankIdx(this);flame.set(Store.streak(this),celebrate);detach(ring);detach(flame)
   put(card().apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
    addView(ring,LinearLayout.LayoutParams(d(104f),d(104f)))
-   addView(flame,LinearLayout.LayoutParams(d(64f),d(206f)).apply{marginStart=d(10f);marginEnd=d(4f)})
    addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(d(8f),0,0,0)
-    addView(tx(Store.streak(this@MainActivity).toString()+" "+t("days"),20f,TX,true).apply{setPadding(0,d(6f),0,0)});addView(tx(t("streak"),11f,MUT,true).apply{letterSpacing=.12f;setPadding(0,d(6f),0,0)});addView(tx(t("best")+" "+Store.best(this@MainActivity),12f,MUT,true))},LinearLayout.LayoutParams(0,W,1f))})
+    addView(tx(Store.streak(this@MainActivity).toString()+" "+t("days"),20f,TX,true).apply{setPadding(0,d(6f),0,0)});addView(tx(t("streak"),11f,MUT,true).apply{letterSpacing=.12f;setPadding(0,d(6f),0,0)});addView(tx(t("best")+" "+Store.best(this@MainActivity),12f,MUT,true))},LinearLayout.LayoutParams(0,W,1f))
+   addView(flame,LinearLayout.LayoutParams(d(64f),d(206f)).apply{marginStart=d(6f)})})
   // controls
   val ctl=LinearLayout(this).apply{layoutParams=LinearLayout.LayoutParams(M,W).apply{bottomMargin=d(12f)}}
   fun sq(title:String,status:String,on:Boolean,last:Boolean,f:(Boolean)->Unit){ctl.addView(card().apply{layoutParams=LinearLayout.LayoutParams(0,d(112f),1f).apply{if(!last)marginEnd=d(8f)};setPadding(d(12f),d(12f),d(12f),d(10f))
