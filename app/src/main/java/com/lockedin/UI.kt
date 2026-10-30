@@ -2,6 +2,9 @@ package com.lockedin
 import android.animation.*
 import android.content.Context
 import android.graphics.*
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioTrack
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 
@@ -108,4 +111,73 @@ class TargetIcon(c:Context):View(c){
  private val p=Paint(Paint.ANTI_ALIAS_FLAG)
  override fun onDraw(cv:Canvas){val w=width/2f;val h=height/2f;val r=minOf(w,h)-context.dp(2f);p.style=Paint.Style.STROKE;p.strokeWidth=context.dp(1.5f);p.color=RED;cv.drawCircle(w,h,r,p)
   p.style=Paint.Style.FILL;cv.drawCircle(w,h,r*.5f,p);p.color=lite(RED);cv.drawCircle(w,h,r*.22f,p);p.style=Paint.Style.STROKE;p.strokeWidth=context.dp(2f);p.color=Color.WHITE;cv.drawLine(w,h,w+r*.8f,h-r*.8f,p)}
+}
+
+object FireSound{
+ private var buf:ShortArray?=null;private var tr:AudioTrack?=null;private const val SR=22050
+ private fun make():ShortArray{val dur=2.8f;val n=(SR*dur).toInt();val s=ShortArray(n);val r=java.util.Random(11);var lp=0f;var lp2=0f;var pop=0f;var prev=0f
+  for(i in 0 until n){val t=i/SR.toFloat();val w=r.nextFloat()*2-1;lp+=.035f*(w-lp);lp2+=.12f*(w-lp2);val hp=w-prev;prev=w
+   if(r.nextFloat()<.0016f)pop=.6f+.4f*r.nextFloat();val clk=pop*(r.nextFloat()*2-1);pop*=.985f
+   val mod=.75f+.25f*Math.sin(t*9.0+Math.sin(t*3.0)).toFloat()
+   val v=lp*2.2f*mod+lp2*.25f+hp*.07f+clk*.9f;val env=minOf(1f,t*8f)*minOf(1f,(dur-t)*3f)
+   s[i]=(v*env*.55f*32767f).coerceIn(-32767f,32767f).toInt().toShort()};return s}
+ fun play(c:Context){if(!Store.p(c).getBoolean("sfx",true))return
+  try{val b=buf?:make().also{buf=it};tr?.release()
+   val t=AudioTrack.Builder().setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+    .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(SR).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build()).setBufferSizeInBytes(b.size*2).setTransferMode(AudioTrack.MODE_STATIC).build()
+   t.write(b,0,b.size);t.play();tr=t}catch(e:Exception){}}
+}
+
+class TorchView(c:Context):View(c){
+ var tint=0;private var n=-1;private var shown=0;private var lit=0f;private var burstAt=0L
+ private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=cond(c.dp(17f),Color.WHITE);private val sp=Paint(Paint.ANTI_ALIAS_FLAG)
+ init{setLayerType(LAYER_TYPE_SOFTWARE,null);isClickable=true;setOnClickListener{burst(true)}}
+ fun burst(sound:Boolean){burstAt=System.nanoTime();if(sound)FireSound.play(context);invalidate()}
+ fun set(v:Int,pop:Boolean){val first=n<0;val was=n;n=v;val target=if(v>0)1f else 0f
+  if(first)lit=target else if(target!=lit)ValueAnimator.ofFloat(lit,target).apply{duration=1100;addUpdateListener{lit=it.animatedValue as Float;invalidate()}}.start()
+  if(v!=was||pop)ValueAnimator.ofInt(if(pop)maxOf(0,v-1) else shown,v).apply{duration=700;addUpdateListener{shown=it.animatedValue as Int;invalidate()}}.start()
+  if(pop&&!first)burst(false)}
+ private fun metal():IntArray=when{tint<=2->intArrayOf(0xFF4A2810.toInt(),0xFFB87333.toInt(),0xFFEBB083.toInt(),0xFF9A5A28.toInt(),0xFF3E2010.toInt());tint<=5->intArrayOf(0xFF3A3E45.toInt(),0xFFB8BEC8.toInt(),0xFFF2F5F9.toInt(),0xFF8A919C.toInt(),0xFF2E3238.toInt());tint==9->intArrayOf(0xFF1E2027.toInt(),0xFF565B68.toInt(),0xFFA9AFBD.toInt(),0xFF3C404B.toInt(),0xFF14151A.toInt());else->intArrayOf(0xFF6B4A10.toInt(),0xFFD6A52B.toInt(),0xFFFFEFA8.toInt(),0xFFB8861F.toInt(),0xFF5A3C0C.toInt())}
+ private fun tg(w:Float,baseY:Float,fh:Float,cx:Float,wd:Float,ht:Float,t:Float,ph:Float,lean:Float):Path{
+  val a=Math.sin(t*2.9+ph).toFloat();val b=Math.sin(t*4.6+ph*1.7).toFloat();val f=Math.sin(t*7.1+ph).toFloat();val g=Math.sin(t*11.3+ph*2.1).toFloat()
+  val tx=(cx+wd*(.18f*a+lean+.05f*g))*w;val ty=baseY-fh*ht*(.9f+.07f*f+.03f*g);val pa=Path();val hh=fh*ht
+  pa.moveTo((cx-wd/2)*w,baseY);pa.cubicTo((cx-wd*.68f)*w,baseY-hh*.40f,(cx-wd*.24f+.05f*b*wd)*w,baseY-hh*.66f,tx,ty)
+  pa.cubicTo((cx+wd*.26f+.05f*b*wd)*w,baseY-hh*.62f,(cx+wd*.68f)*w,baseY-hh*.38f,(cx+wd/2)*w,baseY);pa.close();return pa}
+ private fun layer(top:Float,bot:Float,cols:IntArray,blur:Float,alpha:Int){p.shader=LinearGradient(0f,top,0f,bot,cols,null,Shader.TileMode.CLAMP);p.alpha=alpha;p.maskFilter=if(blur>0f)BlurMaskFilter(blur,BlurMaskFilter.Blur.NORMAL) else null}
+ override fun onDraw(cv:Canvas){val w=width.toFloat();val h=height.toFloat()
+  val now=System.nanoTime();val t=if(REDUCE)0f else now/1e9f;val bt=(now-burstAt)/1e9f;val bursting=burstAt>0L&&bt<3.2f
+  val boost=if(bursting&&bt<1.2f).3f*(1f-bt/1.2f) else 0f
+  val baseY=h*.51f;val fh=h*.5f*lit*(1f+boost);val topY=baseY-fh
+  p.style=Paint.Style.FILL
+  // cavity + embers
+  p.shader=null;p.maskFilter=null;p.color=0xFF1A0A04.toInt();cv.drawOval(RectF(w*.13f,h*.475f,w*.87f,h*.545f),p)
+  val pulse=(.6f+.4f*Math.sin(t*2.2)).toFloat()
+  if(lit<.98f){p.maskFilter=BlurMaskFilter(w*.03f,BlurMaskFilter.Blur.NORMAL);p.color=Color.argb(((1f-lit)*170*pulse).toInt(),230,70,20);cv.drawOval(RectF(w*.3f,h*.49f,w*.7f,h*.525f),p)}
+  if(lit>.02f){
+   // soft glow behind flame
+   p.shader=RadialGradient(w*.5f,baseY-fh*.4f,w*.75f,Color.argb((70*lit).toInt(),255,90,10),Color.TRANSPARENT,Shader.TileMode.CLAMP);p.maskFilter=null;p.alpha=255;cv.drawCircle(w*.5f,baseY-fh*.4f,w*.75f,p)
+   val dr=intArrayOf(0xFF6E0F08.toInt(),0xFFD6320A.toInt(),0xFFFF6A00.toInt())
+   layer(topY,baseY,dr,w*.02f,225);cv.drawPath(tg(w,baseY,fh,.27f,.24f,.40f,t,4f,-.1f),p);cv.drawPath(tg(w,baseY,fh,.75f,.22f,.36f,t,5.2f,.1f),p)
+   cv.drawPath(tg(w,baseY,fh,.34f,.30f,.62f,t,1.3f,-.12f),p);cv.drawPath(tg(w,baseY,fh,.67f,.28f,.55f,t,2.6f,.12f),p)
+   layer(topY,baseY,intArrayOf(0xFF8E1409.toInt(),0xFFE8420C.toInt(),0xFFFF7A00.toInt(),0xFFFFA21A.toInt()),w*.02f,255);cv.drawPath(tg(w,baseY,fh,.5f,.56f,1f,t,0f,0f),p)
+   layer(topY+fh*.25f,baseY,intArrayOf(0xFFFF5A00.toInt(),0xFFFFA000.toInt(),0xFFFFC83A.toInt()),w*.014f,255);cv.drawPath(tg(w,baseY,fh,.5f,.40f,.74f,t,.8f,0f),p)
+   layer(topY+fh*.5f,baseY,intArrayOf(0xFFFFD27A.toInt(),0xFFFFF3C4.toInt()),w*.01f,255);cv.drawPath(tg(w,baseY,fh,.5f,.22f,.46f,t,1.6f,0f),p)
+   p.shader=null;p.maskFilter=null
+   if(!REDUCE)for(i in 0 until 3){val ph=((t*.5f+i*.34f)%1f);p.color=Color.argb(((1f-ph)*190*lit).toInt(),255,(120+ph*60).toInt(),20);val r=w*.04f*(1f-ph);cv.drawOval(RectF(w*(.5f+(Math.sin(i*2.1+t*1.7)*.08*(1+ph)).toFloat())-r,topY-ph*fh*.22f-r*1.4f,w*(.5f+(Math.sin(i*2.1+t*1.7)*.08*(1+ph)).toFloat())+r,topY-ph*fh*.22f+r*1.4f),p)}
+   if(!REDUCE)for(i in 0 until 3+tint/3){val ph=((t*.5f+i*.43f)%1f);sp.color=Color.argb(((1f-ph)*230).toInt(),255,(190-ph*90).toInt(),60);cv.drawCircle(w*(.5f+(Math.sin(i*2.3+t*2.0)*.22*ph).toFloat()),baseY-fh*.2f-ph*h*.3f,w*.018f*(1f-ph*.5f),sp)}
+  }
+  // metal
+  p.maskFilter=null;p.shader=LinearGradient(w*.1f,0f,w*.9f,0f,metal(),floatArrayOf(0f,.28f,.45f,.75f,1f),Shader.TileMode.CLAMP);p.alpha=255
+  val bowl=Path().apply{moveTo(w*.10f,h*.51f);quadTo(w*.5f,h*.585f,w*.90f,h*.51f);cubicTo(w*.86f,h*.66f,w*.66f,h*.70f,w*.60f,h*.74f);lineTo(w*.40f,h*.74f);cubicTo(w*.34f,h*.70f,w*.14f,h*.66f,w*.10f,h*.51f);close()}
+  cv.drawPath(bowl,p)
+  val neck=Path().apply{moveTo(w*.40f,h*.72f);lineTo(w*.60f,h*.72f);lineTo(w*.565f,h*.93f);lineTo(w*.435f,h*.93f);close()};cv.drawPath(neck,p)
+  cv.drawRoundRect(RectF(w*.37f,h*.76f,w*.63f,h*.795f),w*.02f,w*.02f,p);cv.drawRoundRect(RectF(w*.41f,h*.875f,w*.59f,h*.905f),w*.02f,w*.02f,p);cv.drawRoundRect(RectF(w*.40f,h*.93f,w*.60f,h*.985f),w*.03f,w*.03f,p)
+  p.shader=null;p.style=Paint.Style.STROKE;p.strokeWidth=context.dp(1.2f);p.color=Color.argb(110,255,255,255);cv.drawPath(Path().apply{moveTo(w*.10f,h*.51f);quadTo(w*.5f,h*.585f,w*.90f,h*.51f)},p)
+  p.color=Color.argb(70,0,0,0);cv.drawLine(w*.30f,h*.60f,w*.40f,h*.70f,p);cv.drawLine(w*.70f,h*.60f,w*.60f,h*.70f,p);p.style=Paint.Style.FILL
+  tp.color=if(tint==9)0xFFE6E8EE.toInt() else 0xFF1E1408.toInt();cv.drawText(shown.toString(),w/2,h*.665f,tp)
+  // tap burst
+  if(bursting&&!REDUCE){for(i in 0 until 28){val r=java.util.Random(i*13L+7);val ang=Math.toRadians(-90.0+(r.nextDouble()-.5)*110.0);val sped=.25f+.35f*r.nextFloat();val life=1.6f+1.4f*r.nextFloat();val tt=bt-i*.02f
+    if(tt<0||tt>life)continue;val x=w*.5f+(Math.cos(ang)*sped*tt*w*1.4).toFloat();val y=baseY-fh*.1f+(Math.sin(ang)*sped*tt*h*1.1).toFloat()+.18f*h*tt*tt;val k=tt/life
+    sp.color=Color.argb(((1f-k)*255).toInt(),255,(230-k*170).toInt(),(90-k*70).toInt());cv.drawCircle(x,y,w*.02f*(1f-k*.6f)+1f,sp)}}
+  if(!REDUCE||bursting)postInvalidateDelayed(33)}
 }

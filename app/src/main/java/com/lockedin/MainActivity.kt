@@ -21,7 +21,7 @@ import java.util.*
 
 class MainActivity:Activity(){
  private lateinit var root:LinearLayout;private lateinit var nav:LinearLayout;private lateinit var sv:ScrollView;private lateinit var shell:LinearLayout
- private lateinit var ring:RingView;private lateinit var flame:FlameView;private lateinit var bars:BarsView;private lateinit var heat:HeatView
+ private lateinit var ring:RingView;private lateinit var flame:TorchView;private lateinit var bars:BarsView;private lateinit var heat:HeatView
  private val H=Handler(Looper.getMainLooper());private var first=true;private var tab="today";private var page="";private var popId="";private var pv:MediaPlayer?=null
  private val items=ArrayList<View>()
  private val tick=object:Runnable{override fun run(){render();H.postDelayed(this,30000)}}
@@ -36,7 +36,7 @@ class MainActivity:Activity(){
  override fun onCreate(b:Bundle?){super.onCreate(b)
   val old=pr().getString("crash",null);if(old!=null){crashScreen(old);return}
   Thread.setDefaultUncaughtExceptionHandler{_,e->try{Store.p(applicationContext).edit().putString("crash",Log.getStackTraceString(e).take(2200)).commit()}catch(x:Exception){};Process.killProcess(Process.myPid())}
-  N.ch(this);ring=RingView(this);flame=FlameView(this);bars=BarsView(this);heat=HeatView(this)
+  N.ch(this);ring=RingView(this);flame=TorchView(this);bars=BarsView(this);heat=HeatView(this)
   sv=ScrollView(this);root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(d(18f),d(48f),d(18f),d(20f))};sv.addView(root)
   nav=LinearLayout(this).apply{setPadding(0,d(4f),0,d(8f))}
   shell=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;addView(sv,LinearLayout.LayoutParams(M,0,1f));addView(nav,LinearLayout.LayoutParams(M,W))};setContentView(shell)
@@ -110,11 +110,11 @@ class MainActivity:Activity(){
  private fun homeTab(celebrate:Boolean){
   put(tx(L.greet(this),16f,TX,true).apply{setPadding(0,0,0,d(10f))})
   put(card().apply{addView(tx(t("dose"),11f,MUT,true).apply{letterSpacing=.2f});addView(tx(L.dose(this@MainActivity),15f).apply{setPadding(0,d(6f),0,0)})})
-  val (dn,tt)=Store.liveProgress(this);ring.label=t("today");ring.set(if(tt==0)0f else dn*100f/tt);flame.set(Store.streak(this),celebrate);detach(ring);detach(flame)
+  val (dn,tt)=Store.liveProgress(this);ring.label=t("today");ring.set(if(tt==0)0f else dn*100f/tt);flame.tint=Store.rankIdx(this);flame.set(Store.streak(this),celebrate);detach(ring);detach(flame)
   put(card().apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
    addView(ring,LinearLayout.LayoutParams(d(132f),d(132f)))
    addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(d(8f),0,0,0)
-    addView(flame,LinearLayout.LayoutParams(d(84f),d(104f)));addView(tx(Store.streak(this@MainActivity).toString()+" "+t("days"),20f,TX,true).apply{setPadding(0,d(6f),0,0)});addView(tx(t("streak"),11f,MUT,true).apply{letterSpacing=.12f;setPadding(0,d(6f),0,0)});addView(tx(t("best")+" "+Store.best(this@MainActivity),12f,MUT,true))},LinearLayout.LayoutParams(0,W,1f))})
+    addView(flame,LinearLayout.LayoutParams(d(92f),d(150f)));addView(tx(Store.streak(this@MainActivity).toString()+" "+t("days"),20f,TX,true).apply{setPadding(0,d(6f),0,0)});addView(tx(t("streak"),11f,MUT,true).apply{letterSpacing=.12f;setPadding(0,d(6f),0,0)});addView(tx(t("best")+" "+Store.best(this@MainActivity),12f,MUT,true))},LinearLayout.LayoutParams(0,W,1f))})
   // controls
   val ctl=LinearLayout(this).apply{layoutParams=LinearLayout.LayoutParams(M,W).apply{bottomMargin=d(12f)}}
   fun sq(title:String,status:String,on:Boolean,last:Boolean,f:(Boolean)->Unit){ctl.addView(card().apply{layoutParams=LinearLayout.LayoutParams(0,d(112f),1f).apply{if(!last)marginEnd=d(8f)};setPadding(d(12f),d(12f),d(12f),d(10f))
@@ -219,7 +219,7 @@ class MainActivity:Activity(){
    addView(btn(t("backup"),false){startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,Store.backup(this@MainActivity)),"Backup"));render()})
    addView(btn(t("restore"),false){val cm=getSystemService(ClipboardManager::class.java);val tt=cm.primaryClip?.getItemAt(0)?.text?.toString()?:""
     if(Store.restore(this@MainActivity,tt)){Scheduler.all(this@MainActivity);toast(t("restok"));render()}else toast(t("restno"))})}
-  grp(t("set_pref")){addView(row(t("theme"),"",themeName()){themePick()});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,d(8f));addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("reduce"),15f,TX,true));addView(tx(t("reduce_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("reduce",false)){p.edit().putBoolean("reduce",it).apply();render()})});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,d(8f));addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("mot"),15f,TX,true));addView(tx(t("mot_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("mot",true)){p.edit().putBoolean("mot",it).apply();Scheduler.all(this@MainActivity)})});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("hap"),15f,TX,true));addView(tx(t("hap_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("hap",true)){p.edit().putBoolean("hap",it).apply()})})}}
+  grp(t("set_pref")){addView(row(t("theme"),"",themeName()){themePick()});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,d(8f));addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("reduce"),15f,TX,true));addView(tx(t("reduce_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("reduce",false)){p.edit().putBoolean("reduce",it).apply();render()})});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,d(8f));addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("mot"),15f,TX,true));addView(tx(t("mot_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("mot",true)){p.edit().putBoolean("mot",it).apply();Scheduler.all(this@MainActivity)})});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,d(8f));addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("sfx"),15f,TX,true));addView(tx(t("sfx_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("sfx",true)){p.edit().putBoolean("sfx",it).apply()})});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("hap"),15f,TX,true));addView(tx(t("hap_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("hap",true)){p.edit().putBoolean("hap",it).apply()})})}}
 
  // ---------- profile ----------
  private fun saveProfile(){val e=pr().edit();nEt?.let{e.putString("name",it.text.toString().trim().ifBlank{"Yash"})};gEt?.let{e.putString("goal",it.text.toString().trim().ifBlank{"my goal"})};e.apply()}

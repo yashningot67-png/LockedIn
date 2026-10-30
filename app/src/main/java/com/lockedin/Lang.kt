@@ -54,6 +54,7 @@ object L{
   "eve2" to listOf("Still not done? Your streak is bleeding. Back to work, now.|Abhi tak nahi hua? Streak toot rahi hai. Ab kaam par lagiye.|अभी तक नहीं हुआ? स्ट्रीक मर रही है। वापस काम पर, अभी।"),
   "eveok" to listOf("Streak safe today, {n}. Keep going.|Aaj streak surakshit hai, {n}. Isi tarah chaliye.|आज स्ट्रीक सुरक्षित है, {n}। ऐसे ही चलो।"))
  val S=mapOf(
+  "sfx" to "Torch sound|Mashal ki awaaz|मशाल की आवाज़","sfx_d" to "Fire crackle when you tap the flame|Flame par tap karne par aag ki awaaz aati hai|लौ पर टैप करने पर आग की आवाज़",
   "sec_m" to "MORNING|SUBAH|सुबह","sec_a" to "AFTERNOON|DOPAHAR|दोपहर","sec_e" to "EVENING|SHAAM|शाम","sec_n" to "NIGHT|RAAT|रात","none_sched" to "Nothing scheduled|Kuch schedule nahi hai|कुछ निर्धारित नहीं",
   "nodel" to "This task can't be deleted until it is completed.|Ye task complete hone tak delete nahi ho sakta.|यह टास्क पूरा होने तक हटाया नहीं जा सकता।","cantedit" to "Apps can't be removed while a task, Deep Work or a lock is running.|Task, Deep Work ya lock chalte waqt apps hataye nahi ja sakte.|टास्क, डीप वर्क या लॉक चलते समय ऐप्स हटाए नहीं जा सकते।",
   "b_task" to "Finish your scheduled task first.|Pehle apna scheduled task poora kijiye.|पहले अपना निर्धारित टास्क पूरा करो।","from" to "From|Se|से","to" to "To|Tak|तक","addbtn" to "Add|Add karein|जोड़ें","badtime" to "End time must be after start time.|End time start time ke baad hona chahiye.|समाप्ति समय शुरुआत के बाद होना चाहिए।",
