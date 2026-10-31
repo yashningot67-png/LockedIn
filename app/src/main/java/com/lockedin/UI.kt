@@ -29,7 +29,7 @@ class RingView(c:Context):View(c){
  private val fg=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND}
  private val big=cond(c.dp(30f),TX);private val sm=cond(c.dp(11f),MUT)
  fun set(p:Float){if(p==target)return;target=p;val from=shown;ValueAnimator.ofFloat(from,p).apply{duration=900;interpolator=DecelerateInterpolator();addUpdateListener{shown=it.animatedValue as Float;invalidate()}}.start()}
- override fun onDraw(cv:Canvas){val w=width.toFloat();val h=height.toFloat();val s=context.dp(11f);bg.strokeWidth=s;fg.strokeWidth=s;fg.color=RED;bg.color=TRACK;big.color=TX;sm.color=MUT
+ override fun onDraw(cv:Canvas){val w=width.toFloat();val h=height.toFloat();val s=context.dp(9f);bg.strokeWidth=s;fg.strokeWidth=s;fg.color=RED;bg.color=TRACK;big.textSize=context.dp(if(shown>=99.5f)24f else 31f);big.color=TX;sm.color=MUT
   val r=RectF(s,s,w-s,h-s);cv.save();cv.rotate(-90f,w/2,h/2);cv.drawArc(r,0f,360f,false,bg);if(shown>0f)cv.drawArc(r,0f,360f*shown/100f,false,fg);cv.restore()
   cv.drawText(shown.toInt().toString()+"%",w/2,h/2+context.dp(8f),big);cv.drawText(label,w/2,h/2+context.dp(28f),sm)}
 }
@@ -132,7 +132,7 @@ class TorchView(c:Context):View(c){
   cv.drawBitmapMesh(bm,COLS,ROWS,verts,0,null,0,paint)}
  override fun onDraw(cv:Canvas){val w=width.toFloat();val h=height.toFloat();val s=minOf(w/240f,h/770f);val ox=(w-240f*s)/2f;val oy=(h-770f*s)/2f
   fun y(u:Float)=oy+(u+40f)*s
-  val now=System.nanoTime();val t=if(REDUCE)0f else now/1e9f;val bt=(now-burstAt)/1e9f;val bursting=burstAt>0L&&bt<3.2f
+  val now=System.nanoTime();val t=if(REDUCE)0f else now/1e9f;val bt=(now-burstAt)/1e9f;val bursting=burstAt>0L&&bt<4.1f
   val boost=if(bursting&&bt<1.2f).10f*(1f-bt/1.2f) else 0f
   if(LIGHT){p.shader=null;p.style=Paint.Style.FILL;p.color=0xFF0B0B0C.toInt();cv.drawRoundRect(RectF(0f,0f,w,h),w*.14f,w*.14f,p)}
   val rimX=ox+120f*s;val B=y(368f);val top=y(0f)
@@ -140,9 +140,11 @@ class TorchView(c:Context):View(c){
   val g=lit*(1f+boost)*(1f+.02f*Math.sin(t*5.3).toFloat()+.012f*Math.sin(t*9.1).toFloat())
   fb?.let{if(lit>.02f){p.alpha=255;mesh(cv,it,ox,top,B,240f*s,g,t,p);add.alpha=70;mesh(cv,it,ox-1f*s,top,B,240f*s*1.02f,g*.985f,t+1.3f,add)}}
   hb?.let{val m=.55f+.45f*lit;p.colorFilter=if(lit<.99f)ColorMatrixColorFilter(ColorMatrix().apply{setScale(m,m,m,1f)}) else null;p.alpha=255;cv.drawBitmap(it,null,RectF(ox,y(353f),ox+240f*s,y(730f)),p);p.colorFilter=null}
-  if(!REDUCE&&lit>.5f)for(i in 0 until 5){val ph=((t*.4f+i*.37f)%1f);sp.color=Color.argb(((1f-ph)*220*lit).toInt(),255,(170-ph*70).toInt(),50);cv.drawCircle(rimX+(Math.sin(i*2.1+t*1.3)*40*(.4+ph)).toFloat()*s,y(300f-ph*300f),s*2.2f*(1f-ph*.6f),sp)}
-  if(bursting&&!REDUCE){for(i in 0 until 28){val r=java.util.Random(i*13L+7);val ang=Math.toRadians(-90.0+(r.nextDouble()-.5)*110.0);val sped=60f+100f*r.nextFloat();val life=1.6f+1.4f*r.nextFloat();val tt=bt-i*.02f
-    if(tt<0||tt>life)continue;val px=rimX+(Math.cos(ang)*sped*tt*s).toFloat();val py=y(330f)+(Math.sin(ang)*sped*tt*s).toFloat()+40f*tt*tt*s;val k=tt/life
-    sp.color=Color.argb(((1f-k)*255).toInt(),255,(230-k*170).toInt(),(90-k*70).toInt());cv.drawCircle(px,py,s*2.4f*(1f-k*.6f)+1f,sp)}}
+  if(!REDUCE&&lit>.5f)for(i in 0 until 9){val r=java.util.Random(i*31L+3);val ph=((t*(.22f+.2f*r.nextFloat())+r.nextFloat())%1f);val x0=120f+(r.nextFloat()-.5f)*150f;val y0=335f-r.nextFloat()*130f
+   sp.color=Color.argb(((1f-ph)*220*lit).toInt(),255,(200-ph*110).toInt(),(70-ph*40).toInt());cv.drawCircle(x0*s+ox+(Math.sin(t*1.4+i)*16*ph).toFloat()*s,y(y0-ph*230f),s*(2.4f*(1f-ph*.6f)+.5f),sp)}
+  if(bursting&&!REDUCE){for(i in 0 until 70){val r=java.util.Random(i*17L+5);val delay=r.nextFloat()*.7f;val life=1.4f+1.8f*r.nextFloat();val tt=bt-delay;if(tt<0||tt>life)continue;val k=tt/life
+    val x0=120f+(r.nextFloat()-.5f)*170f;val y0=360f-r.nextFloat()*230f;val vy=45f+110f*r.nextFloat();val vx=(r.nextFloat()-.5f)*40f
+    val px=ox+(x0+vx*tt+(Math.sin(tt*3.2+i)*10f).toFloat())*s;val py=y(y0-vy*tt*(1f-.25f*k))
+    sp.color=Color.argb(((1f-k)*(1f-k*.3f)*255).toInt(),255,(235-k*150).toInt(),(110-k*90).toInt());cv.drawCircle(px,py,s*(2.8f*(1f-k*.7f)+.6f),sp)}}
   if(!REDUCE||bursting)postInvalidateDelayed(33)}
 }
