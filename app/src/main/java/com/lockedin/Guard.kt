@@ -20,7 +20,7 @@ object Perm{
 class GuardService:Service(){
  private val h=Handler(Looper.getMainLooper());private var last="";private var lastAt=0L;private var ov:View?=null
  private val loop=object:Runnable{override fun run(){try{check()}catch(e:Exception){};h.postDelayed(this,700)}}
- companion object{fun ensure(c:Context){if(Store.p(c).getBoolean("guard",false)&&Perm.usage(c)&&Perm.overlay(c))try{c.startForegroundService(Intent(c,GuardService::class.java))}catch(e:Exception){}}}
+ companion object{fun ensure(c:Context){if((Store.p(c).getBoolean("guard",false)||Store.p(c).getBoolean("guardlock",false))&&Perm.usage(c)&&Perm.overlay(c))try{c.startForegroundService(Intent(c,GuardService::class.java))}catch(e:Exception){}}}
  override fun onBind(i:Intent?):IBinder?=null
  override fun onStartCommand(i:Intent?,f:Int,s:Int):Int{N.ch(this)
   val n=Notification.Builder(this,"guard").setSmallIcon(android.R.drawable.ic_lock_idle_lock).setContentTitle("Locked In").setContentText(L.t(this,"g_on")).setOngoing(true).build()
@@ -37,4 +37,13 @@ class GuardService:Service(){
    wm.addView(v,WindowManager.LayoutParams(-1,-1,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,PixelFormat.TRANSLUCENT));ov=v
    h.postDelayed({try{wm.removeView(v)}catch(e:Exception){};if(ov===v)ov=null},1800)}catch(e:Exception){}}
  override fun onDestroy(){h.removeCallbacks(loop);try{ov?.let{getSystemService(WindowManager::class.java).removeView(it)}}catch(e:Exception){}}
+}
+
+object Dnd{
+ fun ok(c:Context)=c.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
+ fun on(c:Context){if(!ok(c))return;val nm=c.getSystemService(NotificationManager::class.java);val sp=Store.p(c)
+  if(!sp.getBoolean("dnd_on",false)){val cur=nm.currentInterruptionFilter;sp.edit().putInt("dnd_prev",if(cur<=0)NotificationManager.INTERRUPTION_FILTER_ALL else cur).putBoolean("dnd_on",true).apply()}
+  nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY)}
+ fun off(c:Context){val sp=Store.p(c);if(!sp.getBoolean("dnd_on",false))return
+  if(ok(c))c.getSystemService(NotificationManager::class.java).setInterruptionFilter(sp.getInt("dnd_prev",NotificationManager.INTERRUPTION_FILTER_ALL));sp.edit().putBoolean("dnd_on",false).apply()}
 }

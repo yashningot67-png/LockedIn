@@ -16,7 +16,7 @@ object L{
   return f(c,key,"t" to title)}
  fun theme(c:Context)=t(c,"th_"+cat(c))
  fun dose(c:Context,extra:Int=0):String{val cl=Calendar.getInstance();val day=cl.get(Calendar.DAY_OF_YEAR);val s=day*4+cl.get(Calendar.HOUR_OF_DAY)/6+extra
-  val a=(A[cat(c)]?:emptyList())+A["gen"]!!;val x=pick(a[(s*7)%a.size],lang(c));val y=pick(B[(s*5+day)%B.size],lang(c));return fill(c,x)+" "+fill(c,y)}
+  val a=(A[cat(c)]?:emptyList())+(A2[cat(c)]?:emptyList())+A["gen"]!!+A2["gen"]!!;val x=pick(a[(s*7)%a.size],lang(c));val bb=B+B2;val y=pick(bb[(s*5+day)%bb.size],lang(c));return fill(c,x)+" "+fill(c,y)}
  private val A=mapOf(
   "career" to listOf("Every focused hour is a deposit in your career.|Har focused ghanta aapke career me ek nivesh hai.|हर केंद्रित घंटा आपके करियर में जमा पूँजी है।",
    "Skills compound quietly; interviews reward the hours nobody saw.|Skills chupchaap judti hain; interview un ghanton ko inaam deta hai jo kisi ne nahi dekhe.|कौशल चुपचाप जुड़ता है; इंटरव्यू उन घंटों को इनाम देता है जो किसी ने नहीं देखे।",
@@ -33,6 +33,54 @@ object L{
    "Professionals show up on low-energy days too.|Professionals low-energy din par bhi aate hain.|पेशेवर कम ऊर्जा वाले दिन भी आते हैं।",
    "Execution beats intention every single time.|Execution har baar intention ko haraata hai.|क्रियान्वयन हर बार इरादे को हराता है।",
    "Hold your standard today and tomorrow gets easier.|Aaj apna standard nibhaiye, kal aasaan ho jayega.|आज अपना मानक निभाओ, कल आसान हो जाएगा।"))
+
+ private val A2=mapOf(
+  "gen" to listOf("Discipline is choosing what you want most over what you want now.|Discipline ka matlab hai jo sabse zyada chahiye use abhi ki ichha par chunna.|अनुशासन का अर्थ है जो सबसे ज़्यादा चाहिए उसे अभी की इच्छा पर चुनना।",
+   "Your future self is watching what you do today.|Aapka aane wala kal dekh raha hai ki aap aaj kya karte hain.|आपका भविष्य देख रहा है कि आप आज क्या करते हैं।",
+   "Progress is quiet; it never announces itself.|Progress shor nahi karti; wo chupchaap aati hai.|प्रगति शोर नहीं करती; वह चुपचाप आती है।",
+   "You don't need more time, you need a clearer next step.|Aapko zyada time nahi, ek saaf agla kadam chahiye.|आपको ज़्यादा समय नहीं, एक स्पष्ट अगला कदम चाहिए।",
+   "Make the habit so small that skipping it feels silly.|Aadat itni chhoti rakhiye ki use chhodna bevakoofi lage.|आदत इतनी छोटी रखो कि उसे छोड़ना मूर्खता लगे।",
+   "Every completed task is a vote for who you are becoming.|Har poora hua task is baat ka vote hai ki aap kya ban rahe hain.|हर पूरा किया टास्क इस बात का वोट है कि आप क्या बन रहे हैं।",
+   "Focus is a skill. Train it like one.|Focus ek skill hai. Use skill ki tarah train kijiye.|फ़ोकस एक कौशल है। इसे कौशल की तरह अभ्यास करो।",
+   "Done is better than perfect, and perfect never starts.|Poora hona perfect hone se behtar hai, aur perfect kabhi shuru nahi hota.|पूरा होना परफ़ेक्ट से बेहतर है, और परफ़ेक्ट कभी शुरू नहीं होता।",
+   "A calm start beats a rushed finish.|Shaant shuruat, jaldbaazi ke ant se behtar hai.|शांत शुरुआत जल्दबाज़ी के अंत से बेहतर है।",
+   "What you repeat, you become.|Jo aap dohrate hain, wahi aap ban jate hain.|जो आप दोहराते हैं, वही आप बन जाते हैं।",
+   "Ordinary effort repeated daily looks extraordinary from a distance.|Roz ki saadharan mehnat door se asadharan dikhti hai.|रोज़ की साधारण मेहनत दूर से असाधारण दिखती है।",
+   "Say no to the easy thing; yes to the right thing.|Aasaan cheez ko na kahiye, sahi cheez ko haan.|आसान चीज़ को ना कहो, सही चीज़ को हाँ।",
+   "Energy follows action. Start and it arrives.|Energy kaam ke baad aati hai. Shuru kijiye, wo aa jayegi.|ऊर्जा कर्म के पीछे आती है। शुरू करो, वह आ जाएगी।",
+   "Protect your attention; it is your most valuable asset.|Apna dhyaan bachaiye; wahi aapki sabse keemti punji hai.|अपना ध्यान बचाओ; वही आपकी सबसे कीमती पूँजी है।",
+   "Be the person who keeps small promises to yourself.|Wo insaan baniye jo khud se kiye chhote vaade nibhata hai.|वह इंसान बनो जो खुद से किए छोटे वादे निभाता है।",
+   "One focused hour now saves ten anxious ones later.|Abhi ka ek focused ghanta baad ke das chintit ghanton se bachata hai.|अभी का एक केंद्रित घंटा बाद के दस चिंतित घंटों से बचाता है।"),
+  "career" to listOf("Learn it deeply once; reuse it for a lifetime.|Ek baar gehraai se seekhiye; zindagi bhar kaam aayega.|एक बार गहराई से सीखो; जीवन भर काम आएगा।",
+   "Interviews are won in the weeks before them.|Interview unse pehle ke hafton me jeete jate hain.|इंटरव्यू उनसे पहले के हफ़्तों में जीते जाते हैं।",
+   "Build one real project; it teaches more than ten tutorials.|Ek asli project banaiye; wo das tutorials se zyada sikhata hai.|एक असली प्रोजेक्ट बनाओ; वह दस ट्यूटोरियल से ज़्यादा सिखाता है।",
+   "Consistent practice beats last-minute cramming.|Niyamit abhyaas, aakhri waqt ki ratne se behtar hai.|नियमित अभ्यास आख़िरी समय के रटने से बेहतर है।",
+   "Your portfolio is the sum of your quiet hours.|Aapka portfolio aapke shaant ghanton ka jod hai.|आपका पोर्टफ़ोलियो आपके शांत घंटों का जोड़ है।",
+   "Curiosity plus consistency is rare, and it gets hired.|Jigyasa aur niyamitta ka mel durlabh hai, aur wahi chuna jata hai.|जिज्ञासा और निरंतरता का मेल दुर्लभ है, और वही चुना जाता है।",
+   "Solve one problem today that you couldn't last month.|Aaj ek aisi samasya hal kijiye jo pichhle mahine nahi ho paayi thi.|आज एक ऐसी समस्या हल करो जो पिछले महीने नहीं हो पाई थी।",
+   "Revise yesterday's learning before learning something new.|Kuch naya seekhne se pehle kal ka seekha dohraiye.|कुछ नया सीखने से पहले कल का सीखा दोहराओ।",
+   "Seniority is built by showing up for the boring parts.|Seniority nirasa bhare hisson me upasthit rehne se banti hai.|वरिष्ठता उबाऊ हिस्सों में मौजूद रहने से बनती है।",
+   "Write down what you learned today; teaching it cements it.|Aaj jo seekha use likhiye; sikhane se wo pakka hota hai.|आज जो सीखा उसे लिखो; सिखाने से वह पक्का होता है।"),
+  "fit" to listOf("Train the habit first; results are the by-product.|Pehle aadat banaiye; results uska natija hain.|पहले आदत बनाओ; नतीजे उसका परिणाम हैं।",
+   "Sleep, protein and one more rep. Repeat.|Neend, protein aur ek aur rep. Dohraiye.|नींद, प्रोटीन और एक और रेप। दोहराओ।",
+   "Show up for the workout even when motivation doesn't.|Motivation na aaye tab bhi workout ke liye aaiye.|प्रेरणा न आए तब भी वर्कआउट के लिए आओ।",
+   "Strong is built slowly, then suddenly.|Mazbooti dheere banti hai, phir achanak dikhti hai.|मज़बूती धीरे बनती है, फिर अचानक दिखती है।",
+   "Fuel the body you are building.|Jo sharir aap bana rahe hain use sahi eendhan dijiye.|जो शरीर आप बना रहे हैं उसे सही ईंधन दो।",
+   "A short workout done beats a perfect one skipped.|Chhota workout, chhute hue perfect workout se behtar hai.|छोटा वर्कआउट, छूटे हुए परफ़ेक्ट वर्कआउट से बेहतर है।",
+   "Trust the process, not the mirror's mood.|Process par bharosa rakhiye, sheeshe ke mood par nahi.|प्रक्रिया पर भरोसा रखो, आईने के मूड पर नहीं।",
+   "Hydrate, move, recover. Boring and effective.|Paani piyen, chaliye, aaram kijiye. Seedha aur asardar.|पानी पियो, चलो, आराम करो। सीधा और असरदार।",
+   "Your future body is shaped by today's ordinary choices.|Aapka kal ka sharir aaj ke saadharan faislon se banta hai.|आपका भविष्य का शरीर आज के साधारण फ़ैसलों से बनता है।",
+   "Warm up, then do the work.|Warm up kijiye, phir kaam shuru kijiye.|वॉर्म-अप करो, फिर काम शुरू करो।"),
+  "money" to listOf("Small savings made daily outgrow big plans made rarely.|Roz ki chhoti bachat, kabhi-kabhi ki badi yojnaon se aage nikalti hai.|रोज़ की छोटी बचत कभी-कभी की बड़ी योजनाओं से आगे निकलती है।",
+   "Track every expense for a week; awareness changes behavior.|Ek hafte har kharcha likhiye; jaagrukta aadat badalti hai.|एक हफ़्ते हर खर्च लिखो; जागरूकता आदत बदलती है।",
+   "Spend on what compounds: skills, health and relationships.|Wahan kharch kijiye jo badhta hai: skills, sehat aur rishte.|वहाँ खर्च करो जो बढ़ता है: कौशल, सेहत और रिश्ते।",
+   "A budget is permission to spend without guilt.|Budget bina glani ke kharch karne ki ijazat hai.|बजट बिना ग्लानि के खर्च करने की इजाज़त है।",
+   "Pay yourself first, then plan the rest.|Pehle khud ke liye bachaiye, phir baaki plan kijiye.|पहले खुद के लिए बचाओ, फिर बाकी योजना बनाओ।",
+   "Skip the purchase you'll forget in a week.|Wo kharidari chhodiye jo hafte bhar me bhool jayengi.|वह खरीदारी छोड़ो जो हफ़्ते भर में भूल जाओगे।",
+   "Build the skill that earns, then the habit that saves.|Pehle kamane wali skill banaiye, phir bachane wali aadat.|पहले कमाने वाला कौशल बनाओ, फिर बचाने वाली आदत।",
+   "Wealth is mostly patience with a plan.|Daulat zyada tar yojna ke saath sabr hai.|दौलत ज़्यादातर योजना के साथ धैर्य है।"))
+ private val B2=listOf("Write the first line, the first rep, the first problem.|Pehli line, pehla rep, pehla sawal shuru kijiye.|पहली पंक्ति, पहला रेप, पहला सवाल शुरू करो।","Set a timer for 25 minutes and begin.|25 minute ka timer lagaiye aur shuru kijiye.|25 मिनट का टाइमर लगाओ और शुरू करो।",
+  "Silence your phone and begin.|Phone silent kijiye aur shuru kijiye.|फ़ोन साइलेंट करो और शुरू करो।","Tick the smallest task first for momentum.|Momentum ke liye sabse chhota task pehle poora kijiye.|मोमेंटम के लिए सबसे छोटा टास्क पहले पूरा करो।")
  private val B=listOf("Open your list and start the next task.|List kholiye aur agla task shuru kijiye.|सूची खोलो और अगला टास्क शुरू करो।","Give it one full focus block, phone away.|Ek poora focus block dijiye, phone door rakhiye.|एक पूरा फ़ोकस ब्लॉक दो, फ़ोन दूर।",
   "Begin with five minutes; momentum follows.|Paanch minute se shuru kijiye; momentum aa jayega.|पाँच मिनट से शुरू करो; मोमेंटम आ जाएगा।","Protect your next deep-work block.|Apna agla deep-work block bachaiye.|अपना अगला डीप-वर्क ब्लॉक बचाओ।",
   "Finish one task before you check anything else.|Kuch aur dekhne se pehle ek task poora kijiye.|कुछ और देखने से पहले एक टास्क पूरा करो।","Do the hardest thing first.|Sabse mushkil kaam pehle kijiye.|सबसे कठिन काम पहले करो।",
@@ -54,6 +102,9 @@ object L{
   "eve2" to listOf("Still not done? Your streak is bleeding. Back to work, now.|Abhi tak nahi hua? Streak toot rahi hai. Ab kaam par lagiye.|अभी तक नहीं हुआ? स्ट्रीक मर रही है। वापस काम पर, अभी।"),
   "eveok" to listOf("Streak safe today, {n}. Keep going.|Aaj streak surakshit hai, {n}. Isi tarah chaliye.|आज स्ट्रीक सुरक्षित है, {n}। ऐसे ही चलो।"))
  val S=mapOf(
+  "st_dnd" to "DND with tasks|Task ke saath DND|टास्क के साथ DND","st_dndperm" to "Allow DND access|DND access dijiye|DND एक्सेस दें","dndask" to "Allow Do Not Disturb access for Locked In, then turn Deep Work on again.|Locked In ko Do Not Disturb access dijiye, phir Deep Work dobara on kijiye.|Locked In को डू नॉट डिस्टर्ब एक्सेस दो, फिर डीप वर्क दोबारा चालू करो।",
+  "p_d" to "Do Not Disturb access||डू नॉट डिस्टर्ब एक्सेस","p_d_d" to "Lets Deep Work silence your phone during tasks|Task ke dauran Deep Work phone ko silent karta hai|टास्क के दौरान डीप वर्क फ़ोन को शांत करता है",
+  "guard_warn" to "Once turned on, App Blocker cannot be turned off until you uninstall the app. Continue?|App Blocker ek baar on hone ke baad app uninstall kiye bina band nahi hoga. Aage badhein?|एक बार चालू होने के बाद ऐप ब्लॉकर ऐप हटाए बिना बंद नहीं होगा। आगे बढ़ें?","guardlocked" to "App Blocker is locked ON. Uninstall the app to remove it.|App Blocker locked ON hai. Hatane ke liye app uninstall karein.|ऐप ब्लॉकर लॉक्ड ऑन है। हटाने के लिए ऐप अनइंस्टॉल करें।","yes" to "Yes, turn on|Haan, on karein|हाँ, चालू करें",
   "sfx" to "Torch sound|Mashal ki awaaz|मशाल की आवाज़","sfx_d" to "Fire crackle when you tap the flame|Flame par tap karne par aag ki awaaz aati hai|लौ पर टैप करने पर आग की आवाज़",
   "sec_m" to "MORNING|SUBAH|सुबह","sec_a" to "AFTERNOON|DOPAHAR|दोपहर","sec_e" to "EVENING|SHAAM|शाम","sec_n" to "NIGHT|RAAT|रात","none_sched" to "Nothing scheduled|Kuch schedule nahi hai|कुछ निर्धारित नहीं",
   "nodel" to "This task can't be deleted until it is completed.|Ye task complete hone tak delete nahi ho sakta.|यह टास्क पूरा होने तक हटाया नहीं जा सकता।","cantedit" to "Apps can't be removed while a task, Deep Work or a lock is running.|Task, Deep Work ya lock chalte waqt apps hataye nahi ja sakte.|टास्क, डीप वर्क या लॉक चलते समय ऐप्स हटाए नहीं जा सकते।",

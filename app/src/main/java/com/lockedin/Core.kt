@@ -22,6 +22,7 @@ object Scheduler{
    if(Build.VERSION.SDK_INT<31||am.canScheduleExactAlarms())am.setAlarmClock(AlarmManager.AlarmClockInfo(whenMs,show),pi(c,id))
    else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,whenMs,pi(c,id))
   }catch(e:SecurityException){am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,whenMs,pi(c,id))}}
+ fun soft(c:Context,id:String,whenMs:Long){c.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,whenMs,pi(c,id))}
  fun cancel(c:Context,id:String){val am=c.getSystemService(AlarmManager::class.java);am.cancel(pi(c,id));am.cancel(pi(c,"pre_"+id))}
 }
 object N{
@@ -47,6 +48,7 @@ object N{
 }
 class AlarmReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent){
  val id=i.getStringExtra("id")?:return
+ if(id=="dndoff"){Dnd.off(c);return}
  if(id=="audit"){Scheduler.audit(c);N.auditNote(c);return}
  if(id=="evening"){Scheduler.evening(c);N.evening(c);return}
  if(id.startsWith("mot_")){val hh=when(id){"mot_m"->8;"mot_a"->14;else->19};Scheduler.at(c,id,hh,0);if(Store.p(c).getBoolean("mot",true))N.motivation(c);return}

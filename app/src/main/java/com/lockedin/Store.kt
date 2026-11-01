@@ -19,12 +19,12 @@ object Store{
  fun saveTasks(c:Context,l:List<Task>){val a=JSONArray();l.forEach{a.put(JSONObject().put("id",it.id).put("t",it.title).put("h",it.h).put("m",it.m).put("d",it.dur).put("s",it.strict).put("dt",it.date))};p(c).edit().putString("tasks",a.toString()).apply()}
  fun log(c:Context)=JSONObject(p(c).getString("log_"+day(),"{}"))
  fun mark(c:Context,id:String,k:String,v:Any){val l=log(c);val o=l.optJSONObject(id)?:JSONObject();o.put(k,v);l.put(id,o);p(c).edit().putString("log_"+day(),l.toString()).apply()}
- fun start(c:Context,id:String){mark(c,id,"s",System.currentTimeMillis());val t=tasks(c).firstOrNull{it.id==id};if(t!=null&&t.strict)p(c).edit().putLong("focus",System.currentTimeMillis()+t.dur*60000L).apply()}
- fun finish(c:Context,id:String){val l=log(c).optJSONObject(id);mark(c,id,"e",System.currentTimeMillis());p(c).edit().putLong("focus",0).apply()
+ fun start(c:Context,id:String){mark(c,id,"s",System.currentTimeMillis());val t=tasks(c).firstOrNull{it.id==id};if(t!=null&&t.strict){p(c).edit().putLong("focus",System.currentTimeMillis()+t.dur*60000L).apply();if(p(c).getBoolean("dw",true)&&Dnd.ok(c)){Dnd.on(c);Scheduler.soft(c,"dndoff",System.currentTimeMillis()+t.dur*60000L)}}}
+ fun finish(c:Context,id:String){val l=log(c).optJSONObject(id);mark(c,id,"e",System.currentTimeMillis());p(c).edit().putLong("focus",0).apply();Dnd.off(c)
   val mins=if(l!=null&&l.has("s"))((System.currentTimeMillis()-l.getLong("s"))/60000).toInt() else 0
   val k="fm_"+day();val used=p(c).getInt(k,0);val add=minOf(maxOf(0,120-used),maxOf(0,mins));p(c).edit().putInt(k,used+add).apply()
   }
- fun skip(c:Context,id:String){mark(c,id,"x",true);p(c).edit().putLong("focus",0).apply();addXp(c,-15)}
+ fun skip(c:Context,id:String){mark(c,id,"x",true);p(c).edit().putLong("focus",0).apply();Dnd.off(c);addXp(c,-15)}
  fun todays(c:Context)=tasks(c).filter{it.date==""||it.date==day()||(it.date.startsWith("~")&&it.date.substring(1)<=day())}
  fun tomorrows(c:Context)=tasks(c).filter{it.date==key(-1)||it.date=="~"+key(-1)}
  fun goalShort(c:Context):String{val g=goal(c).trim().replace("\n"," ");val e=g.indexOfFirst{it=='.'||it=='!'||it=='?'};val s=if(e in 10..140)g.substring(0,e+1) else g;return if(s.length>110)s.take(107)+"..." else s}
@@ -104,10 +104,10 @@ object Store{
   return "LOCKEDIN-BACKUP:"+o.toString()}
  fun restore(c:Context,txt:String):Boolean{
   try{val t=txt.trim();if(!t.startsWith("LOCKEDIN-BACKUP:"))return false
-   val o=JSONObject(t.removePrefix("LOCKEDIN-BACKUP:"));val e=p(c).edit().clear()
+   val keepG=p(c).getBoolean("guardlock",false);val o=JSONObject(t.removePrefix("LOCKEDIN-BACKUP:"));val e=p(c).edit().clear()
    for(k in o.keys()){val j=o.getJSONObject(k)
     when(j.getString("t")){"i"->e.putInt(k,j.getInt("v"));"l"->e.putLong(k,j.getLong("v"));"b"->e.putBoolean(k,j.getBoolean("v"));else->e.putString(k,j.getString("v"))}}
-   e.apply();return true}catch(x:Exception){return false}}
+   if(keepG){e.putBoolean("guard",true);e.putBoolean("guardlock",true)};e.apply();return true}catch(x:Exception){return false}}
 
  fun goalCats(c:Context):List<String>{val g=goal(c).lowercase();val o=ArrayList<String>()
   if(listOf("engineer","job","career","software","security","developer","google","microsoft","interview","exam","study","naukri","padhai","coding","skill","upsc","college","नौकरी","पढ़ाई","करियर").any{g.contains(it)})o.add("career")
