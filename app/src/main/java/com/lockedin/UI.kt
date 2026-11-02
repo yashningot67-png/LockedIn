@@ -114,47 +114,43 @@ class TargetIcon(c:Context):View(c){
 }
 
 class TorchView(c:Context):View(c){
- var tint=0;private var n=-1;private var lit=0f;private var burstAt=0L;private var simT=0f
- private val GW=80;private val GH=124;private val heat=IntArray(GW*GH);private val px=IntArray(GW*GH);private val bmp=Bitmap.createBitmap(GW,GH,Bitmap.Config.ARGB_8888);private val rnd=java.util.Random(5)
+ var tint=0;private var n=-1;private var lit=0f;private var burstAt=0L
+ private val COLS=10;private val ROWS=26;private val verts=FloatArray((COLS+1)*(ROWS+1)*2)
  private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val sp=Paint(Paint.ANTI_ALIAS_FLAG)
  private val add=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply{xfermode=PorterDuffXfermode(PorterDuff.Mode.ADD)}
- private val hb:Bitmap?
- private fun mix(a:Int,b:Int,t:Float):Int{val k=t.coerceIn(0f,1f);return Color.rgb((Color.red(a)+(Color.red(b)-Color.red(a))*k).toInt(),(Color.green(a)+(Color.green(b)-Color.green(a))*k).toInt(),(Color.blue(a)+(Color.blue(b)-Color.blue(a))*k).toInt())}
- private val pal=IntArray(256){h->val al=((h-10)*3).coerceIn(0,255)
-  val col=when{h<60->mix(0xFF3A0A06.toInt(),0xFF8E1409.toInt(),h/60f);h<110->mix(0xFF8E1409.toInt(),0xFFD6320A.toInt(),(h-60)/50f);h<170->mix(0xFFD6320A.toInt(),0xFFFF7A00.toInt(),(h-110)/60f);h<225->mix(0xFFFF7A00.toInt(),0xFFFFC83A.toInt(),(h-170)/55f);else->mix(0xFFFFC83A.toInt(),0xFFFFF3C4.toInt(),(h-225)/30f)}
-  (al shl 24) or (col and 0xFFFFFF)}
+ private val fb:Bitmap?;private val hb:Bitmap?
  init{setLayerType(LAYER_TYPE_SOFTWARE,null);isClickable=true;setOnClickListener{burst(false)}
-  val r=c.resources;val id=r.getIdentifier("torch_holder","drawable",c.packageName);hb=if(id==0)null else BitmapFactory.decodeResource(r,id,BitmapFactory.Options().apply{inScaled=false})
-  for(i in 0 until 140){step(.04f*i,0f,1f)}}
+  val r=c.resources;fun ld(nm:String):Bitmap?{val id=r.getIdentifier(nm,"drawable",c.packageName);return if(id==0)null else BitmapFactory.decodeResource(r,id,BitmapFactory.Options().apply{inScaled=false})}
+  fb=ld("torch_flame");hb=ld("torch_holder")}
  fun burst(sound:Boolean){burstAt=System.nanoTime();invalidate()}
  fun set(v:Int,pop:Boolean){val first=n<0;n=v;val target=if(v>0)1f else 0f
-  if(first)lit=target else if(target!=lit)ValueAnimator.ofFloat(lit,target).apply{duration=1200;addUpdateListener{lit=it.animatedValue as Float;invalidate()}}.start()
+  if(first)lit=target else if(target!=lit)ValueAnimator.ofFloat(lit,target).apply{duration=1400;addUpdateListener{lit=it.animatedValue as Float;invalidate()}}.start()
   if(pop&&!first)burst(false)}
- private fun step(t:Float,boost:Float,l:Float){val cx=GW/2f
-  for(x in 0 until GW){val d=Math.abs(x-cx)/(GW*.38f);heat[(GH-1)*GW+x]=if(d<1f)(255f*(1f-d*d*d)*(.8f+.2f*rnd.nextFloat())*l*(1f+boost*.5f)).toInt().coerceIn(0,255) else 0}
-  for(y in GH-2 downTo 0){val hf=(GH-y)/GH.toFloat();val wind=(Math.sin(t*2.1+y*.09)*1.2+Math.sin(t*3.7+y*.21)*.7+Math.sin(t*5.3+y*.35)*.5).toFloat()
-   for(x in 0 until GW){val dx=Math.round(wind*hf*1.8f+(rnd.nextFloat()-.5f)*2.6f);val sx=(x+dx).coerceIn(1,GW-2);val b=(y+1)*GW
-    val below=(heat[b+sx-1]+2*heat[b+sx]+heat[b+sx+1])/4;val edge=Math.abs(x-cx)/cx
-    val cool=(.32f+rnd.nextFloat()*.8f)*(1f-boost*.3f)+4.2f*edge*edge*(.35f+hf)
-    heat[y*GW+x]=maxOf(0,(below-cool).toInt())}}}
+ // slow, smooth, organic warp of the real flame photo: bottom stays anchored, motion grows toward the tip
+ private fun mesh(cv:Canvas,bm:Bitmap,left:Float,top:Float,B:Float,dw:Float,g:Float,t:Float,ph:Float,paint:Paint){var k=0
+  for(j in 0..ROWS){val up=1f-j/ROWS.toFloat();val y0=B-(B-top)*up*g
+   val ud=Math.pow(up.toDouble(),1.3).toFloat();val ux=Math.pow(up.toDouble(),1.4).toFloat()
+   val dyv=((Math.sin(up*9.0-t*.9+ph)*.5+Math.sin(up*15.5-t*.6+ph*1.7+2.1)*.3).toFloat())*(B-top)*.010f*ud
+   for(i in 0..COLS){val xn=i/COLS.toFloat()
+    val dxv=((Math.sin(1.7*xn*Math.PI+t*.45+up*3.1+ph)*.6+Math.sin(2.9*xn*Math.PI-t*.31+up*5.3+1.3+ph)*.4+.2*Math.sin(xn*4.0+t*1.6+up*7.0+ph)).toFloat())*dw*.040f*ux
+    verts[k++]=left+dw*xn+dxv;verts[k++]=y0+dyv}}
+  cv.drawBitmapMesh(bm,COLS,ROWS,verts,0,null,0,paint)}
  override fun onDraw(cv:Canvas){val w=width.toFloat();val h=height.toFloat();val s=minOf(w/240f,h/770f);val ox=(w-240f*s)/2f;val oy=(h-770f*s)/2f
   fun y(u:Float)=oy+(u+40f)*s
   val now=System.nanoTime();val t=if(REDUCE)0f else now/1e9f;val bt=(now-burstAt)/1e9f;val bursting=burstAt>0L&&bt<4.1f
-  val boost=if(bursting&&bt<1.2f).6f*(1f-bt/1.2f) else 0f
+  val boost=if(bursting&&bt<1.2f).08f*(1f-bt/1.2f) else 0f
   if(LIGHT){p.shader=null;p.style=Paint.Style.FILL;p.color=0xFF0B0B0C.toInt();cv.drawRoundRect(RectF(0f,0f,w,h),w*.14f,w*.14f,p)}
-  val rimX=ox+120f*s;val B=y(368f)
-  if(lit<.98f){val pulse=(.6f+.4f*Math.sin(t*2.2)).toFloat();p.shader=RadialGradient(rimX,B,70f*s,Color.argb(((1f-lit)*150*pulse).toInt(),255,90,20),Color.TRANSPARENT,Shader.TileMode.CLAMP);cv.drawCircle(rimX,B,70f*s,p);p.shader=null}
-  if(!REDUCE){simT=t;step(t,boost,lit)}
-  for(i in px.indices)px[i]=pal[heat[i]]
-  bmp.setPixels(px,0,GW,0,0,GW,GH)
-  val dst=RectF(ox,y(-8f),ox+240f*s,y(374f))
-  if(lit>.02f||heat[GW*GH/2]>8){p.alpha=255;p.shader=null;cv.drawBitmap(bmp,null,dst,p)
-   val ex=240f*s*.07f;add.alpha=80;cv.drawBitmap(bmp,null,RectF(dst.left-ex,dst.top-ex*1.5f,dst.right+ex,dst.bottom),add)}
+  val rimX=ox+120f*s;val B=y(366f);val top=y(50f);val dw=246f*s;val left=rimX-dw/2f
+  if(lit<.98f){val pulse=(.6f+.4f*Math.sin(t*1.8)).toFloat();p.shader=RadialGradient(rimX,B,70f*s,Color.argb(((1f-lit)*150*pulse).toInt(),255,90,20),Color.TRANSPARENT,Shader.TileMode.CLAMP);cv.drawCircle(rimX,B,70f*s,p);p.shader=null}
+  if(lit>.02f){val gl=(.9f+.1f*Math.sin(t*.9).toFloat());p.shader=RadialGradient(rimX,B-30f*s,120f*s,Color.argb((78*lit*gl).toInt(),255,110,20),Color.TRANSPARENT,Shader.TileMode.CLAMP);cv.drawCircle(rimX,B-30f*s,120f*s,p);p.shader=null}
+  val g=lit*(1f+boost)*(1f+.012f*Math.sin(t*.8).toFloat()+.006f*Math.sin(t*1.9).toFloat())
+  val br=(.96f+.04f*Math.sin(t*1.1).toFloat())
+  fb?.let{if(lit>.02f){p.alpha=(255*lit.coerceIn(0f,1f)*br).toInt();mesh(cv,it,left,top,B,dw,g,t,0f,p);add.alpha=(34*lit.coerceIn(0f,1f)).toInt();mesh(cv,it,left-1.5f*s,top,B,dw*1.015f,g*.99f,t+2.1f,2.1f,add)}}
   hb?.let{val m=.55f+.45f*lit;p.colorFilter=if(lit<.99f)ColorMatrixColorFilter(ColorMatrix().apply{setScale(m,m,m,1f)}) else null;p.alpha=255;cv.drawBitmap(it,null,RectF(ox,y(353f),ox+240f*s,y(730f)),p);p.colorFilter=null}
-  if(!REDUCE&&lit>.5f)for(i in 0 until 9){val r=java.util.Random(i*31L+3);val ph=((t*(.22f+.2f*r.nextFloat())+r.nextFloat())%1f);val x0=120f+(r.nextFloat()-.5f)*150f;val y0=335f-r.nextFloat()*130f
-   sp.color=Color.argb(((1f-ph)*220*lit).toInt(),255,(200-ph*110).toInt(),(70-ph*40).toInt());cv.drawCircle(x0*s+ox+(Math.sin(t*1.4+i)*16*ph).toFloat()*s,y(y0-ph*230f),s*(2.4f*(1f-ph*.6f)+.5f),sp)}
+  if(!REDUCE&&lit>.5f)for(i in 0 until 9){val r=java.util.Random(i*31L+3);val ph=((t*(.14f+.12f*r.nextFloat())+r.nextFloat())%1f);val x0=120f+(r.nextFloat()-.5f)*130f;val y0=330f-r.nextFloat()*110f
+   sp.color=Color.argb(((1f-ph)*210*lit).toInt(),255,(200-ph*110).toInt(),(70-ph*40).toInt());cv.drawCircle(x0*s+ox+(Math.sin(t*.9+i)*14*ph).toFloat()*s,y(y0-ph*220f),s*(2.2f*(1f-ph*.6f)+.5f),sp)}
   if(bursting&&!REDUCE){for(i in 0 until 70){val r=java.util.Random(i*17L+5);val delay=r.nextFloat()*.7f;val life=1.4f+1.8f*r.nextFloat();val tt=bt-delay;if(tt<0||tt>life)continue;val k=tt/life
-    val x0=120f+(r.nextFloat()-.5f)*170f;val y0=360f-r.nextFloat()*230f;val vy=45f+110f*r.nextFloat();val vx=(r.nextFloat()-.5f)*40f
+    val x0=120f+(r.nextFloat()-.5f)*150f;val y0=360f-r.nextFloat()*200f;val vy=45f+110f*r.nextFloat();val vx=(r.nextFloat()-.5f)*40f
     val px2=ox+(x0+vx*tt+(Math.sin(tt*3.2+i)*10f).toFloat())*s;val py=y(y0-vy*tt*(1f-.25f*k))
     sp.color=Color.argb(((1f-k)*(1f-k*.3f)*255).toInt(),255,(235-k*150).toInt(),(110-k*90).toInt());cv.drawCircle(px2,py,s*(2.8f*(1f-k*.7f)+.6f),sp)}}
   if(!REDUCE||bursting)postInvalidateDelayed(33)}
