@@ -113,59 +113,37 @@ class TargetIcon(c:Context):View(c){
   p.style=Paint.Style.FILL;cv.drawCircle(w,h,r*.5f,p);p.color=lite(RED);cv.drawCircle(w,h,r*.22f,p);p.style=Paint.Style.STROKE;p.strokeWidth=context.dp(2f);p.color=Color.WHITE;cv.drawLine(w,h,w+r*.8f,h-r*.8f,p)}
 }
 
-object FlameMotion{
- var n=0;var fps=30f;var rows=27;var top=FloatArray(0);var br=FloatArray(0);var lick=FloatArray(0);var dx=FloatArray(0);var ws=FloatArray(0);private var loaded=false
- fun load(c:Context){if(loaded)return;loaded=true
-  try{val id=c.resources.getIdentifier("flame_motion","raw",c.packageName);if(id==0)return
-   val lines=c.resources.openRawResource(id).bufferedReader().readLines().filter{it.isNotBlank()};val h=lines[0].trim().split(" ");n=h[0].toInt();fps=h[1].toFloat();rows=h[2].toInt()
-   top=FloatArray(n);br=FloatArray(n);lick=FloatArray(n*10);dx=FloatArray(n*rows);ws=FloatArray(n*rows)
-   for(k in 0 until n){val v=lines[k+1].trim().split(" ").map{it.toFloat()/1000f};top[k]=v[0];br[k]=v[1];for(q in 0 until 10)lick[k*10+q]=v[2+q];for(j in 0 until rows){dx[k*rows+j]=v[12+2*j];ws[k*rows+j]=v[13+2*j]}}}
-  catch(e:Exception){n=0}}
-}
-
 class TorchView(c:Context):View(c){
  var tint=0;private var n=-1;private var lit=0f;private var burstAt=0L
- private val COLS=10;private val ROWS=26;private val verts=FloatArray((COLS+1)*(ROWS+1)*2)
+ private val MW=60;private val MH=98;private val MCOLS=10;private val MN=87
  private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val sp=Paint(Paint.ANTI_ALIAS_FLAG)
- private val add=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply{xfermode=PorterDuffXfermode(PorterDuff.Mode.ADD)}
- private val fb:Bitmap?;private val hb:Bitmap?
- init{setLayerType(LAYER_TYPE_SOFTWARE,null);isClickable=true;setOnClickListener{burst(false)};FlameMotion.load(c)
+ private val fabP=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val maskP=Paint(Paint.FILTER_BITMAP_FLAG).apply{xfermode=PorterDuffXfermode(PorterDuff.Mode.DST_IN)}
+ private val fab:Bitmap?;private val msk:Bitmap?;private val hb:Bitmap?
+ init{setLayerType(LAYER_TYPE_SOFTWARE,null);isClickable=true;setOnClickListener{burst(false)}
   val r=c.resources;fun ld(nm:String):Bitmap?{val id=r.getIdentifier(nm,"drawable",c.packageName);return if(id==0)null else BitmapFactory.decodeResource(r,id,BitmapFactory.Options().apply{inScaled=false})}
-  fb=ld("torch_flame");hb=ld("torch_holder")}
+  fab=ld("flame_fabric");msk=ld("flame_mask");hb=ld("torch_holder")}
  fun burst(sound:Boolean){burstAt=System.nanoTime();invalidate()}
  fun set(v:Int,pop:Boolean){val first=n<0;n=v;val target=if(v>0)1f else 0f
   if(first)lit=target else if(target!=lit)ValueAnimator.ofFloat(lit,target).apply{duration=1400;addUpdateListener{lit=it.animatedValue as Float;invalidate()}}.start()
   if(pop&&!first)burst(false)}
- private fun lp(a:Float,b:Float,k:Float)=a+(b-a)*k
- // the real flame photo is warped row by row using the motion measured from the reference video
- private fun mesh(cv:Canvas,bm:Bitmap,left:Float,top:Float,B:Float,dw:Float,g:Float,fpos:Float,paint:Paint){val m=FlameMotion;var k=0
-  val i0=(Math.floor(fpos.toDouble()).toInt()%m.n+m.n)%m.n;val i1=(i0+1)%m.n;val a=fpos-Math.floor(fpos.toDouble()).toFloat()
-  val gTop=(1f+(lp(m.top[i0],m.top[i1],a)-1f)*.55f).coerceIn(.8f,1.25f);val cxm=left+dw/2f;val bodyW=dw*.44f
-  for(j in 0..ROWS){val up=1f-j/ROWS.toFloat();val wUp=Math.pow(up.toDouble(),.8).toFloat();val jj=minOf(j,m.rows-1)
-   val dxn=lp(m.dx[i0*m.rows+jj],m.dx[i1*m.rows+jj],a);val wsn=lp(m.ws[i0*m.rows+jj],m.ws[i1*m.rows+jj],a);val y0=B-(B-top)*up*g*gTop
-   for(i in 0..COLS){val xx=left+dw*i/COLS;verts[k++]=cxm+(xx-cxm)*(1f+(wsn-1f)*.5f*wUp)+dxn*bodyW*.8f*wUp;verts[k++]=y0}}
-  cv.drawBitmapMesh(bm,COLS,ROWS,verts,0,null,0,paint)}
- private fun lick(cv:Canvas,fpos:Float,B:Float,top:Float,rimX:Float,bodyW:Float,s:Float,lit:Float){val m=FlameMotion;if(m.n==0)return
-  val i0=(Math.floor(fpos.toDouble()).toInt()%m.n+m.n)%m.n;val i1=(i0+1)%m.n;val a=fpos-Math.floor(fpos.toDouble()).toFloat();val H=(B-top)*.8f
-  for(q in 0 until 2){val b0=i0*10+q*5;val b1=i1*10+q*5;val al0=m.lick[b0+4];val al1=m.lick[b1+4];val al=lp(al0,al1,a);if(al<.05f)continue
-   val src=if(al0>.5f&&al1>.5f)null else (if(a<.5f)b0 else b1)
-   val cx=if(src==null)lp(m.lick[b0],m.lick[b1],a) else m.lick[src];val cy=if(src==null)lp(m.lick[b0+1],m.lick[b1+1],a) else m.lick[src+1]
-   val w=if(src==null)lp(m.lick[b0+2],m.lick[b1+2],a) else m.lick[src+2];val h=if(src==null)lp(m.lick[b0+3],m.lick[b1+3],a) else m.lick[src+3]
-   val x=rimX+cx*bodyW*.8f;val y=maxOf(B-cy*H,top-20f*s);val hw=maxOf(w*bodyW*.42f,s*2.5f);val hh=maxOf(h*H*.42f,s*4.5f);val pa=Path()
-   pa.moveTo(x,y-hh);pa.cubicTo(x+hw*1.3f,y-hh*.2f,x+hw,y+hh*.9f,x,y+hh);pa.cubicTo(x-hw,y+hh*.9f,x-hw*1.3f,y-hh*.2f,x,y-hh);pa.close()
-   p.shader=LinearGradient(0f,y-hh,0f,y+hh,intArrayOf(0xFFE8420C.toInt(),0xFFFF9A1A.toInt(),0xFFFFD27A.toInt()),null,Shader.TileMode.CLAMP);p.maskFilter=BlurMaskFilter(s*1.6f,BlurMaskFilter.Blur.NORMAL);p.alpha=(190*al*lit).toInt().coerceIn(0,255);cv.drawPath(pa,p)}
-  p.shader=null;p.maskFilter=null;p.alpha=255}
+ // one video frame: the flame silhouette measured from the reference video, filled with the existing flame colours
+ private fun layer(cv:Canvas,idx:Int,alpha:Int,dst:RectF,fo:Float,fy:Float,m:Float){val fb=fab?:return;val mb=msk?:return;if(alpha<=0)return
+  val src=Rect((idx%MCOLS)*MW,(idx/MCOLS)*MH,(idx%MCOLS+1)*MW,(idx/MCOLS+1)*MH)
+  val sc=cv.saveLayerAlpha(dst,alpha)
+  cv.drawBitmap(fb,null,RectF(dst.left-m+fo,dst.top-m+fy,dst.right+m+fo,dst.bottom+m+fy),fabP)
+  cv.drawBitmap(mb,src,dst,maskP);cv.restoreToCount(sc)}
  override fun onDraw(cv:Canvas){val w=width.toFloat();val h=height.toFloat();val s=minOf(w/240f,h/770f);val ox=(w-240f*s)/2f;val oy=(h-770f*s)/2f
   fun y(u:Float)=oy+(u+40f)*s
-  val m=FlameMotion;val now=System.nanoTime();val t=if(REDUCE)0f else now/1e9f;val bt=(now-burstAt)/1e9f;val bursting=burstAt>0L&&bt<4.1f
+  val now=System.nanoTime();val t=if(REDUCE)0f else now/1e9f;val bt=(now-burstAt)/1e9f;val bursting=burstAt>0L&&bt<4.1f
   val boost=if(bursting&&bt<1.2f).08f*(1f-bt/1.2f) else 0f
   if(LIGHT){p.shader=null;p.style=Paint.Style.FILL;p.color=0xFF0B0B0C.toInt();cv.drawRoundRect(RectF(0f,0f,w,h),w*.14f,w*.14f,p)}
-  val rimX=ox+120f*s;val B=y(366f);val top=y(23f);val dw=280f*s;val left=rimX-dw/2f
+  val rimX=ox+120f*s;val B=y(366f)
   if(lit<.98f){val pulse=(.6f+.4f*Math.sin(t*1.8)).toFloat();p.shader=RadialGradient(rimX,B,70f*s,Color.argb(((1f-lit)*150*pulse).toInt(),255,90,20),Color.TRANSPARENT,Shader.TileMode.CLAMP);cv.drawCircle(rimX,B,70f*s,p);p.shader=null}
   if(lit>.02f){val gl=(.9f+.1f*Math.sin(t*.9).toFloat());p.shader=RadialGradient(rimX,B-30f*s,120f*s,Color.argb((78*lit*gl).toInt(),255,110,20),Color.TRANSPARENT,Shader.TileMode.CLAMP);cv.drawCircle(rimX,B-30f*s,120f*s,p);p.shader=null}
-  val g=lit*(1f+boost);val fpos=if(m.n>0)(t*m.fps)%m.n else 0f
-  val i0=if(m.n>0)fpos.toInt()%m.n else 0;val bri=if(m.n>0)(1f+(lp(m.br[i0],m.br[(i0+1)%m.n],fpos-fpos.toInt())-1f)*.8f).coerceIn(.85f,1.15f) else 1f
-  if(m.n>0)fb?.let{if(lit>.02f){p.alpha=(255*lit.coerceIn(0f,1f)*bri.coerceAtMost(1f)).toInt();mesh(cv,it,left,top,B,dw,g,fpos,p);add.alpha=(34*lit.coerceIn(0f,1f)).toInt();mesh(cv,it,left-1.5f*s,top,B,dw*1.015f,g*.99f,(fpos+3f)%m.n,add)}}
+  if(lit>.02f){val g=lit*(1f+boost);val fpos=(t*30f)%MN;val i0=fpos.toInt()%MN;val i1=(i0+1)%MN;val a=fpos-fpos.toInt()
+   val kx=.79f;val ky=1.2f;val dst=RectF(rimX-120f*kx*s,B-386f*ky*s*g,rimX+120f*kx*s,B+6f*ky*s*g)
+   val A=255f*lit.coerceIn(0f,1f)*(.96f+.04f*Math.sin(t*1.7).toFloat());val fo=Math.sin(t*.7).toFloat()*3f*s;val fy=Math.sin(t*.9+1.0).toFloat()*4f*s
+   layer(cv,i0,(A*(1f-a)).toInt(),dst,fo,fy,6f*s);layer(cv,i1,(A*a).toInt(),dst,fo,fy,6f*s)}
   hb?.let{val mm=.55f+.45f*lit;p.colorFilter=if(lit<.99f)ColorMatrixColorFilter(ColorMatrix().apply{setScale(mm,mm,mm,1f)}) else null;p.alpha=255;cv.drawBitmap(it,null,RectF(ox,y(353f),ox+240f*s,y(730f)),p);p.colorFilter=null}
   if(!REDUCE&&lit>.5f)for(i in 0 until 6){val r=java.util.Random(i*31L+3);val ph=((t*(.14f+.12f*r.nextFloat())+r.nextFloat())%1f);val x0=120f+(r.nextFloat()-.5f)*130f;val y0=330f-r.nextFloat()*110f
    sp.color=Color.argb(((1f-ph)*210*lit).toInt(),255,(200-ph*110).toInt(),(70-ph*40).toInt());cv.drawCircle(x0*s+ox+(Math.sin(t*.9+i)*14*ph).toFloat()*s,y(y0-ph*220f),s*(2.2f*(1f-ph*.6f)+.5f),sp)}
