@@ -119,6 +119,7 @@ class TorchView(c:Context):View(c){
  private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val sp=Paint(Paint.ANTI_ALIAS_FLAG)
  private val fabP=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val maskP=Paint(Paint.FILTER_BITMAP_FLAG).apply{xfermode=PorterDuffXfermode(PorterDuff.Mode.DST_IN)}
  private val fab:Bitmap?;private val msk:Bitmap?;private val hb:Bitmap?
+ private val FC=8;private val FR=16;private val fv=FloatArray((FC+1)*(FR+1)*2)
  init{setLayerType(LAYER_TYPE_SOFTWARE,null);isClickable=true;setOnClickListener{burst(false)}
   val r=c.resources;fun ld(nm:String):Bitmap?{val id=r.getIdentifier(nm,"drawable",c.packageName);return if(id==0)null else BitmapFactory.decodeResource(r,id,BitmapFactory.Options().apply{inScaled=false})}
   fab=ld("flame_fabric");msk=ld("flame_mask");hb=ld("torch_holder")}
@@ -127,10 +128,14 @@ class TorchView(c:Context):View(c){
   if(first)lit=target else if(target!=lit)ValueAnimator.ofFloat(lit,target).apply{duration=1400;addUpdateListener{lit=it.animatedValue as Float;invalidate()}}.start()
   if(pop&&!first)burst(false)}
  // one video frame: the flame silhouette measured from the reference video, filled with the existing flame colours
- private fun layer(cv:Canvas,idx:Int,alpha:Int,dst:RectF,fo:Float,fy:Float,m:Float){val fb=fab?:return;val mb=msk?:return;if(alpha<=0)return
+ private fun layer(cv:Canvas,idx:Int,alpha:Int,dst:RectF,fo:Float,fy:Float,m:Float,t:Float,s:Float){val fb=fab?:return;val mb=msk?:return;if(alpha<=0)return
   val src=Rect((idx%MCOLS)*MW,(idx/MCOLS)*MH,(idx%MCOLS+1)*MW,(idx/MCOLS+1)*MH)
   val sc=cv.saveLayerAlpha(dst,alpha)
-  cv.drawBitmap(fb,null,RectF(dst.left-m+fo,dst.top-m+fy,dst.right+m+fo,dst.bottom+m+fy),fabP)
+  val l=dst.left-m;val tp=dst.top-m;val wd=dst.width()+2*m;val ht=dst.height()+2*m;var k=0
+  for(j in 0..FR){val up=1f-j/FR.toFloat();val amp=(.25f+.75f*up)
+   val dxr=((Math.sin(up*6.5-t*2.6)*.6+Math.sin(up*11.0+t*1.9)*.4).toFloat())*9f*s*amp;val dyr=(Math.sin(up*8.0-t*3.2).toFloat())*4f*s*up
+   for(i in 0..FC){fv[k++]=l+wd*i/FC+dxr+fo;fv[k++]=tp+ht*j/FR+dyr+fy}}
+  cv.drawBitmapMesh(fb,FC,FR,fv,0,null,0,fabP)
   cv.drawBitmap(mb,src,dst,maskP);cv.restoreToCount(sc)}
  override fun onDraw(cv:Canvas){val w=width.toFloat();val h=height.toFloat();val s=minOf(w/240f,h/770f);val ox=(w-240f*s)/2f;val oy=(h-770f*s)/2f
   fun y(u:Float)=oy+(u+40f)*s
@@ -143,7 +148,7 @@ class TorchView(c:Context):View(c){
   if(lit>.02f){val g=lit*(1f+boost);val fpos=(t*30f)%MN;val i0=fpos.toInt()%MN;val i1=(i0+1)%MN;val a=fpos-fpos.toInt()
    val kx=.79f;val ky=1.2f;val dst=RectF(rimX-120f*kx*s,B-386f*ky*s*g,rimX+120f*kx*s,B+6f*ky*s*g)
    val A=255f*lit.coerceIn(0f,1f)*(.96f+.04f*Math.sin(t*1.7).toFloat());val fo=Math.sin(t*.7).toFloat()*3f*s;val fy=Math.sin(t*.9+1.0).toFloat()*4f*s
-   layer(cv,i0,(A*(1f-a)).toInt(),dst,fo,fy,6f*s);layer(cv,i1,(A*a).toInt(),dst,fo,fy,6f*s)}
+   layer(cv,i0,(A*(1f-a)).toInt(),dst,fo,fy,10f*s,t,s);layer(cv,i1,(A*a).toInt(),dst,fo,fy,10f*s,t,s)}
   hb?.let{val mm=.55f+.45f*lit;p.colorFilter=if(lit<.99f)ColorMatrixColorFilter(ColorMatrix().apply{setScale(mm,mm,mm,1f)}) else null;p.alpha=255;cv.drawBitmap(it,null,RectF(ox,y(353f),ox+240f*s,y(730f)),p);p.colorFilter=null}
   if(!REDUCE&&lit>.5f)for(i in 0 until 6){val r=java.util.Random(i*31L+3);val ph=((t*(.14f+.12f*r.nextFloat())+r.nextFloat())%1f);val x0=120f+(r.nextFloat()-.5f)*130f;val y0=330f-r.nextFloat()*110f
    sp.color=Color.argb(((1f-ph)*210*lit).toInt(),255,(200-ph*110).toInt(),(70-ph*40).toInt());cv.drawCircle(x0*s+ox+(Math.sin(t*.9+i)*14*ph).toFloat()*s,y(y0-ph*220f),s*(2.2f*(1f-ph*.6f)+.5f),sp)}
