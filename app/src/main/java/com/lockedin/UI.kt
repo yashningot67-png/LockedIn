@@ -128,7 +128,8 @@ class TorchView(c:Context):View(c){
   if(first)lit=target else if(target!=lit)ValueAnimator.ofFloat(lit,target).apply{duration=1400;addUpdateListener{lit=it.animatedValue as Float;invalidate()}}.start()
   if(pop&&!first)burst(false)}
  // one video frame: the flame silhouette measured from the reference video, filled with the existing flame colours
- private fun layer(cv:Canvas,idx:Int,alpha:Int,dst:RectF,fo:Float,fy:Float,m:Float,t:Float,s:Float){val fb=fab?:return;val mb=msk?:return;if(alpha<=0)return
+ private fun layer(cv:Canvas,idx:Int,alpha:Int,dst0:RectF,fo:Float,fy:Float,m:Float,t:Float,s:Float){val fb=fab?:return;val mb=msk?:return;if(alpha<=0)return
+  val dst=RectF(Math.round(dst0.left).toFloat(),Math.round(dst0.top).toFloat(),Math.round(dst0.right).toFloat(),Math.round(dst0.bottom).toFloat())   // whole pixels, so the layer edge can never leave a thin line
   val src=Rect((idx%MCOLS)*MW,(idx/MCOLS)*MH,(idx%MCOLS+1)*MW,(idx/MCOLS+1)*MH)
   val sc=cv.saveLayerAlpha(dst,alpha)
   val l=dst.left-m;val tp=dst.top-m;val wd=dst.width()+2*m;val ht=dst.height()+2*m;var k=0
