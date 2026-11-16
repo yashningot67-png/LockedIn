@@ -9,15 +9,15 @@ import android.view.View
 import android.view.animation.DecelerateInterpolator
 
 var RED=0xFFFF3B30.toInt();var EMBER=0xFFFF8A1F.toInt();var BG=0xFF0A0A0B.toInt();var CARD=0xFF141416.toInt();var PREMIUM=false;var REDUCE=false
-val GREEN=0xFF34C77B.toInt();val AMBER=0xFFE8A33D.toInt();var MUT=0xFF8E8E96.toInt();var TX=0xFFF4F4F5.toInt();var LINE=0xFF232326.toInt()
+val GREEN=0xFF34C77B.toInt();val AMBER=0xFFE8A33D.toInt();var MUT=0xFF8E8E96.toInt();var TX=0xFFF4F4F5.toInt();var LINE=0xFF414650.toInt()
 var TRACK=0xFF26262A.toInt();var OUT=0xFF2C2C30.toInt();var MISS=0xFF3A3A40.toInt();var EMPTY=0xFF1A1A1D.toInt();var LIGHT=false
 val PAL=arrayOf(longArrayOf(0xFFFF3B30,0xFFFF8A1F,0xFF141416,0xFF0A0A0B),longArrayOf(0xFFFF3B30,0xFFFF8F26,0xFF151517,0xFF0A0A0B),longArrayOf(0xFFFF4538,0xFFFF9A3C,0xFF16171B,0xFF090A0C),longArrayOf(0xFFF7284A,0xFFFF7A59,0xFF181417,0xFF0A0809),
  longArrayOf(0xFFE5173F,0xFFFF6B3D,0xFF191214,0xFF0B0809),longArrayOf(0xFFD81B60,0xFFFF5F6D,0xFF181218,0xFF0B0709),longArrayOf(0xFFE0A526,0xFFFFD76A,0xFF181610,0xFF0B0A07),longArrayOf(0xFFF2B01E,0xFFFFE08A,0xFF1A1710,0xFF0B0A06),
  longArrayOf(0xFFFF9E1B,0xFFFFD54F,0xFF1A1812,0xFF0B0A08),longArrayOf(0xFFB0278F,0xFFFF4081,0xFF16101A,0xFF08060B),longArrayOf(0xFFFFC53D,0xFFFF4D2D,0xFF181410,0xFF070504))
 fun applyTheme(i:Int,light:Boolean=false){LIGHT=light
- if(light){RED=0xFFD92D20.toInt();EMBER=0xFFF79009.toInt();CARD=0xFFFFFFFF.toInt();BG=0xFFF4F5F7.toInt();TX=0xFF111214.toInt();MUT=0xFF6B6F76.toInt();LINE=0xFFE3E5E9.toInt();TRACK=0xFFE4E6EA.toInt();OUT=0xFFD5D8DD.toInt();MISS=0xFFC9CDD3.toInt();EMPTY=0xFFECEEF1.toInt();PREMIUM=false;return}
+ if(light){RED=0xFFD92D20.toInt();EMBER=0xFFF79009.toInt();CARD=0xFFFFFFFF.toInt();BG=0xFFF4F5F7.toInt();TX=0xFF111214.toInt();MUT=0xFF6B6F76.toInt();LINE=0xFFC9CDD3.toInt();TRACK=0xFFE4E6EA.toInt();OUT=0xFFD5D8DD.toInt();MISS=0xFFC9CDD3.toInt();EMPTY=0xFFECEEF1.toInt();PREMIUM=false;return}
  val p=PAL[i.coerceIn(0,10)];RED=p[0].toInt();EMBER=p[1].toInt();CARD=p[2].toInt();BG=p[3].toInt();PREMIUM=i>=10
- TX=0xFFF4F4F5.toInt();MUT=0xFF8E8E96.toInt();LINE=0xFF232326.toInt();TRACK=0xFF26262A.toInt();OUT=0xFF2C2C30.toInt();MISS=0xFF3A3A40.toInt();EMPTY=0xFF1A1A1D.toInt()}
+ TX=0xFFF4F4F5.toInt();MUT=0xFF8E8E96.toInt();LINE=0xFF414650.toInt();TRACK=0xFF26262A.toInt();OUT=0xFF2C2C30.toInt();MISS=0xFF3A3A40.toInt();EMPTY=0xFF1A1A1D.toInt()}
 fun lite(c:Int)=Color.rgb(minOf(255,Color.red(c)+70),minOf(255,Color.green(c)+70),minOf(255,Color.blue(c)+70))
 fun Context.dp(v:Float)=v*resources.displayMetrics.density
 private fun cond(sz:Float,col:Int)=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=col;textSize=sz;textAlign=Paint.Align.CENTER;typeface=Typeface.create("sans-serif-condensed",Typeface.BOLD)}

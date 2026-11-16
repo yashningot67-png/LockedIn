@@ -50,7 +50,7 @@ class MainActivity:Activity(){
   if(!ex)H.postDelayed({dailyPopup()},700)}
  override fun onPause(){super.onPause();H.removeCallbacks(tick)}
  // ---------- ui helpers ----------
- private fun bgd(c:Int,r:Float=16f,st:Int=0)=GradientDrawable().apply{setColor(c);cornerRadius=dp(r);if(st!=0)setStroke(d(1f),st)}
+ private fun bgd(c:Int,r:Float=16f,st:Int=0)=GradientDrawable().apply{setColor(c);cornerRadius=dp(r);if(st!=0)setStroke(d(1.5f),st)}
  private fun tx(s:String,sz:Float,col:Int=TX,bold:Boolean=false)=TextView(this).apply{text=s;textSize=sz;setTextColor(col);if(bold)typeface=Typeface.create("sans-serif-condensed",Typeface.BOLD)}
  private fun lab(s:String)=tx(s,12f,MUT,true).apply{letterSpacing=.16f;setPadding(0,d(14f),0,d(8f))}
  private fun card(stroke:Int=LINE)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;background=bgd(CARD,16f,stroke);setPadding(d(16f),d(14f),d(16f),d(14f));layoutParams=LinearLayout.LayoutParams(M,W).apply{bottomMargin=d(12f)}}
@@ -118,12 +118,11 @@ class MainActivity:Activity(){
    addView(flame,LinearLayout.LayoutParams(d(64f),d(206f)).apply{marginStart=d(4f);marginEnd=d(34f)})})
   // controls
   val ctl=LinearLayout(this).apply{layoutParams=LinearLayout.LayoutParams(M,W).apply{bottomMargin=d(12f)}}
-  fun sq(title:String,status:String,on:Boolean,last:Boolean,f:(Boolean)->Unit){ctl.addView(card().apply{layoutParams=LinearLayout.LayoutParams(0,d(112f),1f).apply{if(!last)marginEnd=d(8f)};setPadding(d(12f),d(12f),d(12f),d(10f))
-   addView(tx(title,12f,TX,true));addView(tx(status,10f,if(on)GREEN else MUT).apply{setPadding(0,d(2f),0,0)});addView(View(this@MainActivity),LinearLayout.LayoutParams(M,0,1f));addView(sw(on,f))})}
+  fun sq(title:String,status:String,on:Boolean,last:Boolean,f:(Boolean)->Unit){ctl.addView(card().apply{layoutParams=LinearLayout.LayoutParams(0,d(132f),1f).apply{if(!last)marginEnd=d(8f)};setPadding(d(12f),d(12f),d(12f),d(10f))
+   addView(tx(title,12f,TX,true));addView(tx(status,10f,if(on)GREEN else MUT).apply{setPadding(0,d(2f),0,0)});addView(tx(when(title){t("ctl_dw")->t("dw_d");t("ctl_sun")->t("sun_d");else->""},9.5f,MUT).apply{setPadding(0,d(6f),0,0)});addView(View(this@MainActivity),LinearLayout.LayoutParams(M,0,1f));addView(sw(on,f))})}
   val p=pr();val fo=Store.focusOn(this)
   sq(t("ctl_dw"),if(!p.getBoolean("dw",true))t("st_off") else if(!Dnd.ok(this))t("st_dndperm") else if(fo)t("st_until").replace("{t}",SimpleDateFormat("h:mm a",Locale.getDefault()).format(Date(p.getLong("focus",0)))) else t("st_dnd"),p.getBoolean("dw",true),false){p.edit().putBoolean("dw",it).apply();if(it&&!Dnd.ok(this)){toast(t("dndask"));try{startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))}catch(e:Exception){}};render()}
-  sq(t("ctl_sun"),if(p.getBoolean("ss",false))fmt(p.getInt("sh",23),0)+"-"+fmt(p.getInt("eh",6),0) else t("st_off"),p.getBoolean("ss",false),false){p.edit().putBoolean("ss",it).apply();render()}
-  sq(t("ctl_eve"),if(p.getBoolean("eve",true))fmt(p.getInt("evh",20),p.getInt("evm",0)) else t("st_off"),p.getBoolean("eve",true),true){p.edit().putBoolean("eve",it).apply();render()}
+  sq(t("ctl_sun"),if(p.getBoolean("ss",false))fmt(p.getInt("sh",23),0)+"-"+fmt(p.getInt("eh",6),0) else t("st_off"),p.getBoolean("ss",false),true){p.edit().putBoolean("ss",it).apply();render()}
   put(ctl)
   // locked apps
   val apps=Store.apps(this);val act=fo||Store.sunsetOn(this)||Store.locks(this).keys().asSequence().any{Store.locks(this).optLong(it,0)>System.currentTimeMillis()}
@@ -201,7 +200,6 @@ class MainActivity:Activity(){
  private fun settingsTab(){
   val p=pr()
   grp(t("set_sched")){addView(row(t("sunwin"),t("sunwin_d"),fmt(p.getInt("sh",23),0)+" - "+fmt(p.getInt("eh",6),0)){pick(p.getInt("sh",23),0){h,_->pick(p.getInt("eh",6),0){h2,_->p.edit().putInt("sh",h).putInt("eh",h2).apply();render()}}});addView(divider())
-   addView(row(t("eveset"),t("eve_d"),fmt(p.getInt("evh",20),p.getInt("evm",0))){pick(p.getInt("evh",20),p.getInt("evm",0)){h,m->p.edit().putInt("evh",h).putInt("evm",m).apply();Scheduler.evening(this@MainActivity);render()}});addView(divider())
    addView(row(t("audtime"),t("aud_d"),fmt(p.getInt("ah",22),p.getInt("am",0))){pick(p.getInt("ah",22),p.getInt("am",0)){h,m->p.edit().putInt("ah",h).putInt("am",m).apply();Scheduler.audit(this@MainActivity);render()}})}
   grp(t("set_audio")){addView(row(t("tonecur"),toneName(),t("preview"),RED){preview()});addView(divider())
    addView(row(t("tonesys"),"","›"){try{startActivityForResult(Intent(RingtoneManager.ACTION_RINGTONE_PICKER).putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE,RingtoneManager.TYPE_ALARM).putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT,true),11)}catch(e:Exception){toast("Picker not available")}});addView(divider())
@@ -212,9 +210,6 @@ class MainActivity:Activity(){
     addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(a.first,15f,TX,true));addView(tx(if(u>System.currentTimeMillis())t("st_locked").replace("{t}",timeStr(u)) else if(p.getBoolean("dw",true)||p.getBoolean("ss",false))t("st_auto") else t("st_ready"),11f,if(u>System.currentTimeMillis())RED else MUT))},LinearLayout.LayoutParams(0,W,1f))
     addView(tx("✕",16f,MUT,true).apply{setPadding(d(12f),d(6f),d(4f),d(6f));setOnClickListener{if(Store.restricting(this@MainActivity))toast(t("cantedit")) else{Store.saveApps(this@MainActivity,Store.apps(this@MainActivity).filter{x->x.second!=a.second});render()}}})})}
    addView(btn(t("addapp"),false){pickApp()});addView(btn(t("testlock"),false){pr().edit().putLong("testlock",System.currentTimeMillis()+60000).apply();toast(t("teston"))})}
-  grp(t("blocker")){addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("blocker"),15f,TX,true));addView(tx(t("blocker_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("guard",false)||p.getBoolean("guardlock",false)){on->val lk=p.getBoolean("guardlock",false)
-   if(!on){if(lk){toast(t("guardlocked"));render()}else{p.edit().putBoolean("guard",false).apply();stopService(Intent(this@MainActivity,GuardService::class.java));render()}}
-   else if(!lk)dlg().setTitle(t("blocker")).setMessage(t("guard_warn")).setPositiveButton(t("yes")){_,_->p.edit().putBoolean("guard",true).apply();guardFlow()}.setNegativeButton(t("back")){_,_->render()}.setCancelable(false).show()})})}
   grp(t("set_perm")){val ks=listOf("n","x","f","b","u","o","d");var allOk=true
    ks.forEach{k->val ok=permOk(k);if(!ok&&k!="f")allOk=false;addView(row(t("p_"+k),t("p_"+k+"_d"),if(ok)t("granted") else t("needed"),if(ok)GREEN else RED){when(k){"d"->try{startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))}catch(e:Exception){toast("Open Settings manually")};"n"->try{startActivity(Intent("android.settings.APP_NOTIFICATION_SETTINGS").putExtra("android.provider.extra.APP_PACKAGE",packageName))}catch(e:Exception){toast("Open Settings manually")};"x"->system(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);"f"->system("android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT");"b"->system(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);"u"->try{startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).setData(Uri.parse("package:$packageName")))}catch(e:Exception){system(Settings.ACTION_USAGE_ACCESS_SETTINGS,false)};else->system(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)}});addView(divider())}
    addView(row(t("health"),"",if(allOk)t("h_ok") else t("h_bad"),if(allOk)GREEN else AMBER));addView(divider())

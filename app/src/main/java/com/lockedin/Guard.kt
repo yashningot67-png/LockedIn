@@ -20,7 +20,7 @@ object Perm{
 class GuardService:Service(){
  private val h=Handler(Looper.getMainLooper());private var last="";private var lastAt=0L;private var ov:View?=null
  private val loop=object:Runnable{override fun run(){try{check()}catch(e:Exception){};h.postDelayed(this,700)}}
- companion object{fun ensure(c:Context){if((Store.p(c).getBoolean("guard",false)||Store.p(c).getBoolean("guardlock",false))&&Perm.usage(c)&&Perm.overlay(c))try{c.startForegroundService(Intent(c,GuardService::class.java))}catch(e:Exception){}}}
+ companion object{fun ensure(c:Context){if(Perm.usage(c)&&Perm.overlay(c))try{c.startForegroundService(Intent(c,GuardService::class.java))}catch(e:Exception){}}}
  override fun onBind(i:Intent?):IBinder?=null
  override fun onStartCommand(i:Intent?,f:Int,s:Int):Int{N.ch(this)
   val n=Notification.Builder(this,"guard").setSmallIcon(android.R.drawable.ic_lock_idle_lock).setContentTitle("Locked In").setContentText(L.t(this,"g_on")).setOngoing(true).build()
@@ -28,7 +28,8 @@ class GuardService:Service(){
   h.removeCallbacks(loop);h.post(loop);return START_STICKY}
  private fun fg():String?{val um=getSystemService(UsageStatsManager::class.java);val now=System.currentTimeMillis();val ev=um.queryEvents(now-8000,now);val e=UsageEvents.Event();var pkg:String?=null
   while(ev.hasNextEvent()){ev.getNextEvent(e);if(e.eventType==UsageEvents.Event.ACTIVITY_RESUMED)pkg=e.packageName else if(e.eventType==UsageEvents.Event.ACTIVITY_PAUSED&&e.packageName==pkg)pkg=null};return pkg}
- private fun check(){val pkg=fg()?:return;if(pkg==packageName)return
+ private fun check(){if(Store.p(this).getBoolean("dnd_on",false)&&Store.p(this).getLong("focus",0)<=System.currentTimeMillis())Dnd.off(this)
+  val pkg=fg()?:return;if(pkg==packageName)return
   val r=Store.reason(this,pkg)?:return;val now=System.currentTimeMillis();if(pkg==last&&now-lastAt<2500)return;last=pkg;lastAt=now
   startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
   val m=when(r){"lock"->L.f(this,"b_lock","a" to Store.label(this,pkg),"g" to L.theme(this));"task"->L.t(this,"b_task");"focus"->L.t(this,"b_focus");else->L.t(this,"b_sun")}

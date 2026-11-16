@@ -19,7 +19,9 @@ object Store{
  fun saveTasks(c:Context,l:List<Task>){val a=JSONArray();l.forEach{a.put(JSONObject().put("id",it.id).put("t",it.title).put("h",it.h).put("m",it.m).put("d",it.dur).put("s",it.strict).put("dt",it.date))};p(c).edit().putString("tasks",a.toString()).apply()}
  fun log(c:Context)=JSONObject(p(c).getString("log_"+day(),"{}"))
  fun mark(c:Context,id:String,k:String,v:Any){val l=log(c);val o=l.optJSONObject(id)?:JSONObject();o.put(k,v);l.put(id,o);p(c).edit().putString("log_"+day(),l.toString()).apply()}
- fun start(c:Context,id:String){mark(c,id,"s",System.currentTimeMillis());val t=tasks(c).firstOrNull{it.id==id};if(t!=null&&t.strict){p(c).edit().putLong("focus",System.currentTimeMillis()+t.dur*60000L).apply();if(p(c).getBoolean("dw",true)&&Dnd.ok(c)){Dnd.on(c);Scheduler.soft(c,"dndoff",System.currentTimeMillis()+t.dur*60000L)}}}
+ fun start(c:Context,id:String){mark(c,id,"s",System.currentTimeMillis());val t=tasks(c).firstOrNull{it.id==id};if(t!=null&&t.strict){p(c).edit().putLong("focus",System.currentTimeMillis()+t.dur*60000L).apply();val nowMs=System.currentTimeMillis()
+   if(t.dur>=20)Scheduler.exact(c,"rem1_"+id,nowMs+t.dur*30000L);if(t.dur>=40)Scheduler.exact(c,"rem2_"+id,nowMs+t.dur*60000L-15*60000L)
+   if(p(c).getBoolean("dw",true)&&Dnd.ok(c)){Dnd.on(c);Scheduler.exact(c,"dndoff",nowMs+t.dur*60000L)}}}
  fun finish(c:Context,id:String){val l=log(c).optJSONObject(id);mark(c,id,"e",System.currentTimeMillis());p(c).edit().putLong("focus",0).apply();Dnd.off(c)
   val mins=if(l!=null&&l.has("s"))((System.currentTimeMillis()-l.getLong("s"))/60000).toInt() else 0
   val k="fm_"+day();val used=p(c).getInt(k,0);val add=minOf(maxOf(0,120-used),maxOf(0,mins));p(c).edit().putInt(k,used+add).apply()

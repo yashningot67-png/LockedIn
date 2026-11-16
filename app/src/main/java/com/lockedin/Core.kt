@@ -9,7 +9,7 @@ object Scheduler{
   Store.tasks(c).forEach{if(it.date==""||(it.date.startsWith("~")&&it.date.substring(1)<=Store.day()))at(c,"pre_"+it.id,it.h,it.m,5) else atDate(c,if(it.date.startsWith("~"))it.copy(date=it.date.substring(1)) else it,true)}
   Store.tasks(c).forEach{val dt=it.date;if(dt==""||(dt.startsWith("~")&&dt.substring(1)<=Store.day()))at(c,it.id,it.h,it.m) else atDate(c,if(dt.startsWith("~"))it.copy(date=dt.substring(1)) else it)};audit(c);evening(c)}
  fun atDate(c:Context,t:Task,pre:Boolean=false){val p=t.date.split("-");if(p.size<3)return;val cal=java.util.Calendar.getInstance().apply{set(p[0].toInt(),p[1].toInt()-1,p[2].toInt(),t.h,t.m,0);set(java.util.Calendar.MILLISECOND,0)};if(pre)cal.add(java.util.Calendar.MINUTE,-5);if(cal.timeInMillis<=System.currentTimeMillis())return;sched(c,if(pre)"pre_"+t.id else t.id,cal.timeInMillis)}
- fun evening(c:Context)=at(c,"evening",Store.p(c).getInt("evh",20),Store.p(c).getInt("evm",0))
+ fun evening(c:Context)=at(c,"evening",18,0)
  fun audit(c:Context)=at(c,"audit",Store.p(c).getInt("ah",22),Store.p(c).getInt("am",0))
  private fun pi(c:Context,id:String)=PendingIntent.getBroadcast(c,id.hashCode(),Intent(c,AlarmReceiver::class.java).putExtra("id",id),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
  fun at(c:Context,id:String,h:Int,m:Int,off:Int=0){
@@ -22,6 +22,8 @@ object Scheduler{
    if(Build.VERSION.SDK_INT<31||am.canScheduleExactAlarms())am.setAlarmClock(AlarmManager.AlarmClockInfo(whenMs,show),pi(c,id))
    else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,whenMs,pi(c,id))
   }catch(e:SecurityException){am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,whenMs,pi(c,id))}}
+ fun exact(c:Context,id:String,whenMs:Long){val am=c.getSystemService(AlarmManager::class.java)
+  try{if(Build.VERSION.SDK_INT<31||am.canScheduleExactAlarms())am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,whenMs,pi(c,id)) else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,whenMs,pi(c,id))}catch(e:SecurityException){am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,whenMs,pi(c,id))}}
  fun soft(c:Context,id:String,whenMs:Long){c.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,whenMs,pi(c,id))}
  fun cancel(c:Context,id:String){val am=c.getSystemService(AlarmManager::class.java);am.cancel(pi(c,id));am.cancel(pi(c,"pre_"+id))}
 }
@@ -39,16 +41,22 @@ object N{
    .addAction(0,L.t(c,"start_a"),act(c,t.id,"start")).addAction(0,L.t(c,"skip_a"),skipPi(c,t.id)).build()}
  fun idle(c:Context):Notification{ch(c);return Notification.Builder(c,"mini").setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("Locked In").build()}
  fun mini(c:Context,t:Task){ch(c);c.getSystemService(NotificationManager::class.java).notify(t.id.hashCode(),Notification.Builder(c,"mini").setSmallIcon(android.R.drawable.ic_popup_reminder).setContentTitle(t.title).setContentText(L.t(c,"minirem")+", "+t.time).setAutoCancel(true).setContentIntent(open(c)).build())}
- fun evening(c:Context){if(!Store.p(c).getBoolean("eve",true))return;ch(c)
+ fun evening(c:Context){ch(c)
   val u=Store.undone(c);val txt=if(u>0)L.line(c,"eve"+L.inten(c)) else L.line(c,"eveok")
   c.getSystemService(NotificationManager::class.java).notify(4,Notification.Builder(c,"mini").setSmallIcon(android.R.drawable.ic_popup_reminder).setContentTitle("Locked In").setContentText(txt).setStyle(Notification.BigTextStyle().bigText(txt)).setAutoCancel(true).setContentIntent(open(c)).build())}
  fun motivation(c:Context){ch(c);val txt=L.dose(c);c.getSystemService(NotificationManager::class.java).notify(6,Notification.Builder(c,"mini").setSmallIcon(android.R.drawable.ic_popup_reminder).setContentTitle(L.greet(c)).setContentText(txt).setStyle(Notification.BigTextStyle().bigText(txt)).setAutoCancel(true).setContentIntent(open(c)).build())}
  fun pre(c:Context,t:Task){ch(c);val txt=L.pre(c,t.title);c.getSystemService(NotificationManager::class.java).notify(("pre"+t.id).hashCode(),Notification.Builder(c,"mini").setSmallIcon(android.R.drawable.ic_popup_reminder).setContentTitle(t.title+" ("+t.time+")").setContentText(txt).setStyle(Notification.BigTextStyle().bigText(txt)).setAutoCancel(true).setContentIntent(open(c)).build())}
+ fun remaining(c:Context,t:Task,left:Int){ch(c)
+  val x=if(left>=60)(if(left%60==0)L.f(c,"t_h","h" to (left/60).toString()) else L.f(c,"t_hm","h" to (left/60).toString(),"m" to (left%60).toString())) else L.f(c,"t_m","m" to left.toString())
+  val txt=L.f(c,"rem_txt","n" to Store.name(c),"x" to x,"t" to t.title)
+  c.getSystemService(NotificationManager::class.java).notify(("rem"+t.id).hashCode(),Notification.Builder(c,"mini").setSmallIcon(android.R.drawable.ic_popup_reminder).setContentTitle(t.title).setContentText(txt).setStyle(Notification.BigTextStyle().bigText(txt)).setAutoCancel(true).setContentIntent(open(c)).build())}
  fun auditNote(c:Context){ch(c);c.getSystemService(NotificationManager::class.java).notify(3,Notification.Builder(c,"nag2").setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle(L.t(c,"audnote")).setContentText(L.t(c,"audnote2")).setAutoCancel(true).setContentIntent(open(c,"audit")).setFullScreenIntent(open(c,"audit"),true).build())}
 }
 class AlarmReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent){
  val id=i.getStringExtra("id")?:return
  if(id=="dndoff"){Dnd.off(c);return}
+ if(id.startsWith("rem1_")||id.startsWith("rem2_")){val tid=id.substring(5);val t=Store.tasks(c).firstOrNull{it.id==tid}?:return;val e=Store.log(c).optJSONObject(tid)
+  if(e==null||!e.has("s")||e.has("e")||e.has("x"))return;val left=((e.getLong("s")+t.dur*60000L-System.currentTimeMillis())/60000).toInt();if(left>0)N.remaining(c,t,left);return}
  if(id=="audit"){Scheduler.audit(c);N.auditNote(c);return}
  if(id=="evening"){Scheduler.evening(c);N.evening(c);return}
  if(id.startsWith("mot_")){val hh=when(id){"mot_m"->8;"mot_a"->14;else->19};Scheduler.at(c,id,hh,0);if(Store.p(c).getBoolean("mot",true))N.motivation(c);return}
