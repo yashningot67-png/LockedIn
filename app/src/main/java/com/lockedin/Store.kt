@@ -67,8 +67,8 @@ object Store{
  fun rankName(c:Context)=RANKS[rankIdx(c)].first
  fun rankPct(c:Context):Int{val i=rankIdx(c);if(i==RANKS.lastIndex)return 100;val a=RANKS[i].second;val b=RANKS[i+1].second;return (xp(c)-a)*100/(b-a)}
  class AuditResult(val pass:Boolean,val shieldUsed:Boolean,val lockHours:Int,val lockCount:Int,val reward:String)
- fun applyAudit(c:Context,failCount:Int,total:Int,taskXp:Int=0):AuditResult{
-  val pr=p(c);val pct=(total-failCount)*100/total;var reward=""
+ fun applyAudit(c:Context,failCount:Int,total:Int,taskXp:Int=0,po:Int=-1):AuditResult{
+  val pr=p(c);val pct=if(po>=0)po else (total-failCount)*100/total;var reward=""
   if(failCount==0){
    pr.edit().putInt("miss",0).apply();addXp(c,30+taskXp)
    val cb=pr.getInt("cb",0)
@@ -99,6 +99,36 @@ object Store{
   if(ex.length()>0)out.add(L.f(c,"i_skips","n" to ex.length().toString(),"r" to ex.getJSONObject(ex.length()-1).getString("r")))
   if(out.isEmpty())out.add(L.t(c,"i_ok"))
   return out}
+ class TaskRes(val t:Task,val st:Int,val onTime:Boolean,val el:Int)
+ fun taskResults(c:Context):List<TaskRes>{val l=log(c);return todays(c).filter{it.strict}.sortedBy{it.mins}.map{t->val e=l.optJSONObject(t.id)
+   val done=e?.has("e")==true;val started=e?.has("s")==true;val st=if(done)2 else if(started&&e?.has("x")!=true)1 else 0
+   var on=false;var el=0
+   if(started&&e!=null){val cl=Calendar.getInstance();cl.timeInMillis=e.getLong("s");on=cl.get(Calendar.HOUR_OF_DAY)*60+cl.get(Calendar.MINUTE)<=t.mins+10;if(done)el=((e.getLong("e")-e.getLong("s"))/60000).toInt()}
+   TaskRes(t,st,on,el)}}
+ fun levelIdx(s:Int)=if(s>=90)0 else if(s>=80)1 else if(s>=70)2 else if(s>=60)3 else if(s>=40)4 else 5
+ class Score(val comp:Int,val qual:Int,val disc:Int,val cons:Int,val self:Int,val total:Int,val focus:Int)
+ fun score(c:Context,res:List<TaskRes>,q:IntArray,refl:Int,a30:Int):Score{val n=maxOf(1,res.size)
+  val comp=((res.count{it.st==2}+.5f*res.count{it.st==1})*100/n).toInt()
+  val qual=(((q[0]+q[1]+(6-q[2])+q[3])/4f-1f)*25f).toInt().coerceIn(0,100)
+  val disc=res.count{it.onTime&&it.st>0}*100/n
+  var sum=0;var cnt=0;for(i in 1..6){val v=p(c).getInt("h_"+key(i),-1);if(v>=0){sum+=v;cnt++}};val cons=if(cnt>0)sum/cnt else comp
+  val self=(refl*14+when(a30){0->30;1->15;else->0}).coerceIn(0,100)
+  val total=(comp*.4f+qual*.2f+disc*.2f+cons*.1f+self*.1f).toInt().coerceIn(0,100)
+  return Score(comp,qual,disc,cons,self,total,(q[0]-1)*25)}
+ fun addFail(c:Context,title:String,reason:Int,avoid:Int){val a=JSONArray(p(c).getString("fl","[]"));a.put(JSONObject().put("d",day()).put("t",title).put("r",reason).put("a",avoid));p(c).edit().putString("fl",tail(a,200).toString()).apply()}
+ fun recurring(c:Context):Pair<Int,Int>?{val a=JSONArray(p(c).getString("fl","[]"));val cnt=IntArray(8);val ks=(0..6).map{key(it)}.toSet()
+  for(i in 0 until a.length()){val o=a.getJSONObject(i);if(o.getString("d") in ks)cnt[o.getInt("r").coerceIn(0,7)]++}
+  val m=cnt.indices.maxByOrNull{cnt[it]}!!;return if(cnt[m]>=3)m to cnt[m] else null}
+ fun consecutive(c:Context):Pair<String,Int>?{val a=JSONArray(p(c).getString("fl","[]"));val by=HashMap<String,HashSet<String>>()
+  for(i in 0 until a.length()){val o=a.getJSONObject(i);by.getOrPut(o.getString("t")){HashSet()}.add(o.getString("d"))}
+  for((t,days) in by){var i=if(key(0) in days)0 else 1;var n=0;while(i<30&&key(i) in days){n++;i++};if(n>=3)return t to n};return null}
+ class AuditOut(val score:Score,val level:Int,val pass:Boolean,val warn:Boolean,val punish:Boolean,val shield:Boolean,val lockHours:Int,val lockCount:Int,val reward:String)
+ fun finishAudit(c:Context,sc:Score,res:List<TaskRes>):AuditOut{
+  p(c).edit().putString("ad_"+day(),JSONObject().put("sc",sc.total).put("cp",sc.comp).put("fo",sc.focus).put("di",sc.disc).put("ms",res.count{it.st==0}).put("pt",res.count{it.st==1}).put("tt",res.size).toString()).putBoolean("aud_"+day(),true).apply()
+  for(r in res)addEvent(c,r.t.title,r.st==2)
+  var xp=0;for(r in res)if(r.st==2)xp+=if(r.el>=r.t.dur/2)10+minOf(r.el,r.t.dur)/10 else 3
+  val a=applyAudit(c,if(sc.total>=60)0 else 1,1,minOf(xp,60),sc.total)
+  return AuditOut(sc,levelIdx(sc.total),a.pass,sc.total in 60..74,sc.total<60,a.shieldUsed,a.lockHours,a.lockCount,a.reward)}
  fun backup(c:Context):String{p(c).edit().putLong("lastbk",System.currentTimeMillis()).apply();val o=JSONObject()
   for((k,v) in p(c).all){if(k=="crash")continue;val j=JSONObject()
    when(v){is Int->j.put("t","i").put("v",v);is Long->j.put("t","l").put("v",v);is Boolean->j.put("t","b").put("v",v);is String->j.put("t","s").put("v",v);else->continue}

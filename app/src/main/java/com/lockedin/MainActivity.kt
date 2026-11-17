@@ -94,6 +94,7 @@ class MainActivity:Activity(){
   REDUCE=pr().getBoolean("reduce",false);val th=pr().getInt("theme",-1);applyTheme(if(th>=0)minOf(th,Store.rankIdx(this)) else Store.rankIdx(this),th==-2);window.statusBarColor=BG;window.navigationBarColor=BG;window.decorView.systemUiVisibility=if(LIGHT)(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR) else 0;sv.setBackgroundColor(BG);shell.setBackgroundColor(BG)
   items.clear();root.removeAllViews()
   val onb=!pr().getBoolean("onb",false)
+  if(!onb&&page=="audit"){nav.visibility=View.GONE;auditPage();return}
   if(onb||page=="profile"){nav.visibility=View.GONE;profilePage(onb);return}
   nav.visibility=View.VISIBLE
   val hdr=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,0,d(10f))}
@@ -279,26 +280,89 @@ class MainActivity:Activity(){
   val timer=object:CountDownTimer(30000,1000){override fun onTick(ms:Long){pb.text=t("skipbtn")+" ("+ms/1000+")"};override fun onFinish(){pb.text=t("skipbtn");pb.isEnabled=true}}
   timer.start();dl.setOnDismissListener{timer.cancel();resumeNag()}
   pb.setOnClickListener{if(r.text.trim().length<6){toast(t("needreason"));return@setOnClickListener};Store.skip(this,id);Store.addExcuse(this,tk.title,r.text.toString().trim());dl.dismiss();render()}}
+ // ---------- audit (multi-step) ----------
+ private var aStep=0;private var aQ=IntArray(4){3};private var a30=1;private var aSat=1
+ private class MissRec(val t:Task,val st:Int){var r=0;var av=0;var prev="";var chg=""}
+ private var aRecs=ArrayList<MissRec>();private var aRes:List<Store.TaskRes> = emptyList();private var aRef=Array(4){""}
+ private var aOut:Store.AuditOut?=null;private var aMsgs:List<String> = emptyList();private var aLocked:List<String> = emptyList();private val aCol=ArrayList<()->Unit>()
+ override fun onBackPressed(){if(page!=""){page="";aOut=null;render()}else super.onBackPressed()}
  private fun audit(){
   val st=Store.todays(this).filter{it.strict}
   if(st.isEmpty()){toast(t("nostrict"));return}
   if(pr().getBoolean("aud_"+Store.day(),false)){toast(t("auddone"));return}
-  val log=Store.log(this);val l=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(40,20,40,0)};val ins=ArrayList<Pair<EditText,Spinner>>()
-  st.forEach{tk->val e=log.optJSONObject(tk.id);val tr=if(e!=null&&e.has("s")&&e.has("e"))((e.getLong("e")-e.getLong("s"))/60000).toInt() else 0
-   l.addView(tx(tk.title+" ("+tk.dur+" min)",16f,TX,true).apply{setPadding(0,d(10f),0,0)})
-   val r=EditText(this).apply{inputType=InputType.TYPE_CLASS_NUMBER;hint=t("actual");setText(tr.toString())}
-   val q=Spinner(this).apply{adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,arrayOf(t("q1"),t("q2"),t("q3"),t("q4")))}
-   l.addView(r);l.addView(q);ins.add(r to q)}
-  dlg().setTitle(t("audtitle")).setView(ScrollView(this).apply{addView(l)}).setPositiveButton(t("submit")){_,_->
-   val fails=st.indices.filter{i->val e=log.optJSONObject(st[i].id);e==null||e.has("x")||ins[i].second.selectedItemPosition>=2||(ins[i].first.text.toString().toIntOrNull()?:0)<st[i].dur/2}
-   var xpT=0;for(i in st.indices){val e=log.optJSONObject(st[i].id);if(e!=null&&e.has("e")&&e.has("s")){val el=((e.getLong("e")-e.getLong("s"))/60000).toInt();xpT+=if(el>=st[i].dur/2)10+minOf(el,st[i].dur)/10 else 3}}
-   for(i in st.indices)Store.addEvent(this,st[i].title,!fails.contains(i))
-   val res=Store.applyAudit(this,fails.size,st.size,minOf(xpT,60));pr().edit().putBoolean("aud_"+Store.day(),true).apply()
-   var msg:String
-   if(res.pass)msg=L.f(this,"passmsg","n" to Store.name(this))+(if(res.reward.isNotEmpty())"\n\n"+res.reward else "")
-   else{msg=L.line(this,"ins"+L.inten(this))+"\n\n"+t("failed")+": "+fails.joinToString{st[it].title}
-    if(res.shieldUsed)msg+="\n\n"+t("shield")
-    val free=Store.apps(this).filter{Store.locks(this).optLong(it.second,0)<System.currentTimeMillis()}.shuffled().take(res.lockCount)
-    if(free.isNotEmpty()){free.forEach{Store.lock(this,it.second,res.lockHours)};msg+="\n\n"+L.f(this,"punline","a" to free.joinToString{it.first},"h" to res.lockHours.toString())}else msg+="\n\n"+t("punhint")}
-   dlg().setTitle(t("audres")).setMessage(msg).setPositiveButton(t("ok")){_,_->hap();render(res.pass||res.shieldUsed)}.show()}.show()}
+  aStep=0;aQ=IntArray(4){3};a30=1;aSat=1;aRef=Array(4){""};aOut=null;aRes=Store.taskResults(this)
+  aRecs=ArrayList(aRes.filter{it.st<2}.map{MissRec(it.t,it.st)});page="audit";tab="today";render()}
+ private fun stat(n:Int,l:String,col:Int)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;layoutParams=LinearLayout.LayoutParams(0,W,1f);addView(tx(n.toString(),26f,col,true));addView(tx(l,11f,MUT))}
+ private fun spin(items:List<String>,sel:Int):Spinner{val ad=object:ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,items){
+   override fun getView(p:Int,v:View?,g:ViewGroup):View{val x=super.getView(p,v,g) as TextView;x.setTextColor(TX);return x}
+   override fun getDropDownView(p:Int,v:View?,g:ViewGroup):View{val x=super.getDropDownView(p,v,g) as TextView;x.setTextColor(TX);x.setBackgroundColor(CARD);return x}}
+  return Spinner(this).apply{adapter=ad;setSelection(sel)}}
+ private fun edit(h:String,v:String)=EditText(this).apply{setText(v);setHintTextColor(MUT);setTextColor(TX);hint=h;textSize=14f;inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;minLines=2;gravity=Gravity.TOP}
+ private fun prow(a:String,b:String)=LinearLayout(this).apply{setPadding(0,d(4f),0,d(4f));addView(tx(a,12f,MUT),LinearLayout.LayoutParams(0,W,1f));addView(tx(b,13f,TX,true))}
+ private fun aNav(final:Boolean){val row=LinearLayout(this).apply{layoutParams=LinearLayout.LayoutParams(M,W)}
+  if(aStep>0)row.addView(btn(t("a_back"),false){aCol.forEach{it()};aStep=if(aStep-1==2&&aRecs.isEmpty())1 else aStep-1;sv.scrollTo(0,0);render()},LinearLayout.LayoutParams(0,d(52f),1f).apply{marginEnd=d(8f)})
+  row.addView(btn(t(if(final)"a_submit" else "a_next")){aCol.forEach{it()};aStep=if(aStep+1==2&&aRecs.isEmpty())3 else aStep+1;sv.scrollTo(0,0);render()},LinearLayout.LayoutParams(0,d(52f),1f))
+  put(row)}
+ private fun auditPage(){aCol.clear()
+  put(tx(t("a_title"),12f,MUT,true).apply{letterSpacing=.16f;setPadding(0,d(4f),0,0)})
+  if(aStep<4)put(tx(L.f(this,"a_step","n" to (aStep+1).toString()),12f,MUT))
+  when(aStep){0->aSummary();1->aQuality();2->aMissed();3->aReflect();else->aEnd()}}
+ private fun aSummary(){
+  val n=aRes.size;val dn=aRes.count{it.st==2};val pn=aRes.count{it.st==1};val mn=aRes.count{it.st==0};val rate=if(n==0)0 else ((dn+.5f*pn)*100/n).toInt()
+  put(tx(t("a_h1"),22f,TX,true).apply{setPadding(0,d(6f),0,d(4f))});put(tx(t("a_auto"),12f,MUT).apply{setPadding(0,0,0,d(10f))})
+  put(card().apply{addView(tx(t("a_rate"),11f,MUT,true).apply{letterSpacing=.14f});addView(tx(rate.toString()+"%",36f,TX,true));addView(tx(t("a_tot")+": "+n,12f,MUT).apply{setPadding(0,0,0,d(10f))})
+   addView(LinearLayout(this@MainActivity).apply{addView(stat(dn,t("a_cd"),GREEN));addView(stat(pn,t("a_pt"),AMBER));addView(stat(mn,t("a_ms"),RED))})})
+  aRes.forEach{r->put(card().apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;addView(tx(r.t.title,15f,TX,true),LinearLayout.LayoutParams(0,W,1f));addView(tx(t(when(r.st){2->"a_cd";1->"a_pt";else->"a_ms"}),12f,when(r.st){2->GREEN;1->AMBER;else->RED},true))})}
+  aNav(false)}
+ private fun aQuality(){
+  put(tx(t("a_hq"),22f,TX,true).apply{setPadding(0,d(6f),0,d(2f))});put(tx(t("a_scale"),12f,MUT).apply{setPadding(0,0,0,d(10f))})
+  for(i in 0..3){val vt=tx(aQ[i].toString(),18f,RED,true)
+   val sb=SeekBar(this).apply{max=4;progress=aQ[i]-1;progressTintList=ColorStateList.valueOf(RED);thumbTintList=ColorStateList.valueOf(RED)
+    setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{override fun onProgressChanged(s:SeekBar?,p:Int,u:Boolean){aQ[i]=p+1;vt.text=(p+1).toString()};override fun onStartTrackingTouch(s:SeekBar?){};override fun onStopTrackingTouch(s:SeekBar?){}})}
+   put(card().apply{addView(tx(t("a_q"+(i+1)),15f,TX,true));addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,0);addView(sb,LinearLayout.LayoutParams(0,W,1f));addView(vt)})})}
+  aNav(false)}
+ private fun aMissed(){
+  put(tx(t("a_hm"),22f,TX,true).apply{setPadding(0,d(6f),0,d(2f))});put(tx(t("a_nj"),12f,MUT).apply{setPadding(0,0,0,d(10f))})
+  aRecs.forEach{rc->val sr=spin((0..7).map{t("r"+it)},rc.r);val sa=spin((0..2).map{t("av"+it)},rc.av);val ep=edit("",rc.prev);val ec=edit("",rc.chg)
+   aCol.add{rc.r=sr.selectedItemPosition;rc.av=sa.selectedItemPosition;rc.prev=ep.text.toString();rc.chg=ec.text.toString()}
+   put(card().apply{addView(tx(rc.t.title+"  ("+t(if(rc.st==1)"a_pt" else "a_ms")+")",16f,TX,true));addView(tx(t("a_why"),12f,MUT).apply{setPadding(0,d(8f),0,0)});addView(sr)
+    addView(tx(t("a_av"),12f,MUT).apply{setPadding(0,d(8f),0,0)});addView(sa);addView(tx(t("a_pv"),12f,MUT).apply{setPadding(0,d(8f),0,0)});addView(ep);addView(tx(t("a_ch"),12f,MUT).apply{setPadding(0,d(8f),0,0)});addView(ec)})}
+  aNav(false)}
+ private fun aReflect(){
+  put(tx(t("a_hr"),22f,TX,true).apply{setPadding(0,d(6f),0,d(10f))})
+  val eds=(0..3).map{edit("",aRef[it])};for(i in 0..3)put(card().apply{addView(tx(t("a_r"+(i+1)),14f,TX,true));addView(eds[i])})
+  val s1=spin((0..2).map{t("sa"+it)},aSat);val s2=spin((0..2).map{t("t30_"+it)},a30)
+  put(card().apply{addView(tx(t("a_r5"),14f,TX,true));addView(s1)});put(card(RED).apply{addView(tx(t("a_30"),14f,TX,true));addView(s2)})
+  aCol.add{for(i in 0..3)aRef[i]=eds[i].text.toString();aSat=s1.selectedItemPosition;a30=s2.selectedItemPosition}
+  aNav(true)}
+ private fun feedback(o:Store.AuditOut):List<String>{val sc=o.score;val l=ArrayList<String>()
+  l.add(L.f(this,"f_lv","lv" to t("lv"+o.level),"s" to sc.total.toString()))
+  val dims=intArrayOf(sc.comp,sc.qual,sc.disc,sc.cons,sc.self);val wi=dims.indices.minByOrNull{dims[it]}!!;l.add(t("f_d"+wi))
+  aRecs.map{it.r}.distinct().take(2).forEach{l.add(t("f_r"+it))}
+  val av=aRecs.count{it.av==0};if(av>0)l.add(L.f(this,"f_av","n" to av.toString()))
+  Store.recurring(this)?.let{l.add(L.f(this,"w_rec","r" to t("r"+it.first),"n" to it.second.toString()))}
+  Store.consecutive(this)?.let{l.add(L.f(this,"w_cons","t" to it.first,"n" to it.second.toString()))}
+  l.add(t(when(a30){2->"f_30n";1->"f_30m";else->"f_30y"}))
+  aRecs.firstOrNull{it.chg.isNotBlank()}?.let{l.add(L.f(this,"f_ch","c" to it.chg.trim()))}
+  if(aRef[0].isNotBlank())l.add(L.f(this,"f_ach","c" to aRef[0].trim()))
+  l.add(t("f_t"+L.inten(this)));return l}
+ private fun aEnd(){
+  if(aOut==null){val refl=aRef.count{it.isNotBlank()}+1
+   val sc=Store.score(this,aRes,aQ,refl,a30);val out=Store.finishAudit(this,sc,aRes);aOut=out
+   aRecs.forEach{Store.addFail(this,it.t.title,it.r,it.av)}
+   val free=if(out.punish)Store.apps(this).filter{Store.locks(this).optLong(it.second,0)<System.currentTimeMillis()}.shuffled().take(out.lockCount) else emptyList()
+   free.forEach{Store.lock(this,it.second,out.lockHours)};aLocked=free.map{it.first};aMsgs=feedback(out)}
+  val o=aOut!!;val sc=o.score;val col=if(sc.total>=80)GREEN else if(sc.total>=60)AMBER else RED
+  put(tx(t("a_end"),22f,TX,true).apply{setPadding(0,d(6f),0,d(4f))})
+  put(tx(if(sc.total<75)t("a_end_lo") else t("a_end_hi")+" "+t("a_ap"+(Calendar.getInstance().get(Calendar.DAY_OF_YEAR)%3)),14f,MUT).apply{setPadding(0,0,0,d(10f))})
+  put(card(col).apply{addView(tx(t("a_score"),11f,MUT,true).apply{letterSpacing=.14f});addView(tx(sc.total.toString(),44f,col,true));addView(tx(t("lv"+o.level),16f,TX,true))})
+  put(card().apply{listOf(sc.comp,sc.qual,sc.disc,sc.cons,sc.self).forEachIndexed{i,v->addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(5f),0,d(3f));addView(tx(t("c"+i),13f,TX),LinearLayout.LayoutParams(0,W,1f));addView(tx(v.toString()+"%",13f,MUT,true))})
+    addView(LinearLayout(this@MainActivity).apply{addView(View(this@MainActivity).apply{background=bgd(RED,3f)},LinearLayout.LayoutParams(0,d(5f),maxOf(1f,v.toFloat())));addView(View(this@MainActivity).apply{background=bgd(TRACK,3f)},LinearLayout.LayoutParams(0,d(5f),maxOf(0f,100f-v)))})}})
+  put(card().apply{addView(tx(if(o.pass)t("s_plus") else if(o.shield)t("s_shd") else t("s_brk"),14f,if(o.pass||o.shield)GREEN else RED,true));if(o.reward.isNotEmpty())addView(tx(o.reward,12f,MUT))})
+  if(o.punish)put(card(RED).apply{addView(tx(t("p_viol"),15f,RED,true).apply{letterSpacing=.1f})
+   if(aLocked.isEmpty())addView(tx(t("p_none"),13f,MUT)) else{addView(tx(aLocked.joinToString(),20f,TX,true));addView(tx(t("p_sel"),12f,MUT).apply{setPadding(0,0,0,d(6f))})
+    addView(prow(t("p_dur"),L.f(this@MainActivity,"p_hours","h" to o.lockHours.toString())));addView(prow(t("p_rs"),t("p_rsv")));addView(prow(t("p_st"),t("p_lk")));addView(tx(t("p_stay"),12f,MUT).apply{setPadding(0,d(8f),0,0)})}})
+  else if(o.warn)put(card(AMBER).apply{addView(tx(t("p_warn"),13f,AMBER,true))})
+  put(card().apply{aMsgs.forEach{addView(tx(it,14f).apply{setPadding(0,d(4f),0,d(4f))})}})
+  put(btn(t("ok")){page="";aStep=0;aOut=null;render(o.pass||o.shield)})}
 }
