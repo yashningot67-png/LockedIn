@@ -102,6 +102,7 @@ object L{
   "eve2" to listOf("Still not done? Your streak is bleeding. Back to work, now.|Abhi tak nahi hua? Streak toot rahi hai. Ab kaam par lagiye.|अभी तक नहीं हुआ? स्ट्रीक मर रही है। वापस काम पर, अभी।"),
   "eveok" to listOf("Streak safe today, {n}. Keep going.|Aaj streak surakshit hai, {n}. Isi tarah chaliye.|आज स्ट्रीक सुरक्षित है, {n}। ऐसे ही चलो।"))
  val S=mapOf(
+  "stoprep" to "Stop repeating (from tomorrow)|Repeat band karein (kal se)|रिपीट बंद करें (कल से)","deltask" to "Delete task|Task delete karein|टास्क हटाएँ","stopped" to "This task will no longer repeat after today.|Ye task aaj ke baad repeat nahi hoga.|यह टास्क आज के बाद दोहराया नहीं जाएगा।",
   "a_title" to "DAILY AUDIT||दैनिक ऑडिट","a_step" to "Step {n} of 4|Step {n} / 4|चरण {n} / 4","a_h1" to "How productive were you today?|Aaj aap kitne productive rahe?|आज आप कितने उत्पादक रहे?","a_auto" to "Calculated automatically from your task records.|Ye aapke task records se apne aap nikala gaya hai.|यह आपके टास्क रिकॉर्ड से अपने आप निकाला गया है।",
   "a_rate" to "Today's completion rate|Aaj ki completion rate|आज की पूर्णता दर","a_cd" to "Completed|Poore hue|पूरे हुए","a_pt" to "Partial|Adhoore|आंशिक","a_ms" to "Missed|Chhoote|छूटे","a_tot" to "Total tasks scheduled today|Aaj ke total scheduled tasks|आज के कुल निर्धारित टास्क",
   "a_hq" to "Task quality|Task ki quality|टास्क की गुणवत्ता","a_scale" to "1 = not at all, 5 = completely|1 = bilkul nahi, 5 = poori tarah|1 = बिल्कुल नहीं, 5 = पूरी तरह",

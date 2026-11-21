@@ -24,9 +24,10 @@ class MainActivity:Activity(){
  private lateinit var ring:RingView;private lateinit var flame:TorchView;private lateinit var bars:BarsView;private lateinit var heat:HeatView
  private val H=Handler(Looper.getMainLooper());private var first=true;private var tab="today";private var page="";private var popId="";private var pv:MediaPlayer?=null
  private val items=ArrayList<View>()
- private val tick=object:Runnable{override fun run(){render();H.postDelayed(this,30000)}}
+ private val tick=object:Runnable{override fun run(){if(page=="")render();H.postDelayed(this,30000)}}
  private val M=ViewGroup.LayoutParams.MATCH_PARENT;private val W=ViewGroup.LayoutParams.WRAP_CONTENT
- private var nEt:EditText?=null;private var gEt:EditText?=null
+ private var nEt:EditText?=null;private var gEt:EditText?=null;private var nDraft:String?=null;private var gDraft:String?=null
+ private fun watch(f:(String)->Unit)=object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun afterTextChanged(e:android.text.Editable?){f(e?.toString()?:"")}}
  private fun t(k:String)=L.t(this,k)
  private fun pr()=Store.p(this)
  private fun d(v:Float)=dp(v).toInt()
@@ -141,12 +142,17 @@ class MainActivity:Activity(){
    put(card().apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
     addView(tx(if(done)"✓" else "",15f,Color.WHITE,true).apply{gravity=Gravity.CENTER;background=GradientDrawable().apply{shape=GradientDrawable.OVAL;if(done)setColor(GREEN) else setStroke(d(2f),if(run)RED else MISS)}
      if(popId==tk.id){scaleX=.3f;scaleY=.3f;animate().scaleX(1f).scaleY(1f).setInterpolator(OvershootInterpolator()).setDuration(380).start();popId=""}},LinearLayout.LayoutParams(d(28f),d(28f)))
-    addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;setPadding(d(14f),0,d(8f),0);addView(tx(tk.title,16f,TX,true));addView(tx(ampm(tk.h,tk.m)+(if(tk.strict)" - "+ampm((tk.mins+tk.dur)%1440/60,(tk.mins+tk.dur)%60) else "  •  "+t("minirem")),12f,MUT))},LinearLayout.LayoutParams(0,W,1f))
+    addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;setPadding(d(14f),0,d(8f),0);addView(tx(tk.title,16f,TX,true));addView(tx(ampm(tk.h,tk.m)+(if(tk.strict)" - "+ampm((tk.mins+tk.dur)%1440/60,(tk.mins+tk.dur)%60) else "  •  "+t("minirem"))+(if(tk.date==""||tk.date.startsWith("~"))"  ↻" else ""),12f,MUT))},LinearLayout.LayoutParams(0,W,1f))
     val st:View=when{!tk.strict->tx(t("mini"),11f,MUT,true);skp->tx(t("skipped"),11f,MUT,true);done->tx(t("done"),12f,GREEN,true)
      run->if(Store.nowMin()>=minOf(1439,tk.mins+tk.dur))small(t("complete")){Store.finish(this@MainActivity,tk.id);popId=tk.id;render()} else tx(L.f(this@MainActivity,"endsat","t" to ampm((tk.mins+tk.dur)%1440/60,(tk.mins+tk.dur)%60)),11f,MUT,true)
      Store.nowMin()>=tk.mins->small(t("start")){Store.start(this@MainActivity,tk.id);stopService(Intent(this@MainActivity,NagService::class.java));getSystemService(NotificationManager::class.java).cancel(1);resumeNag();render()}
      else->tx(t("upcoming"),11f,MUT,true)}
-    addView(st);setOnLongClickListener{if(tk.strict&&!done&&!skp)toast(t("nodel")) else{delTask(tk.id);render()};true}})}}
+    addView(st);setOnLongClickListener{val rep=tk.date==""||tk.date.startsWith("~")
+     if(!rep){if(tk.strict&&!done&&!skp)toast(t("nodel")) else{delTask(tk.id);render()}}
+     else dlg().setTitle(tk.title).setItems(arrayOf(t("stoprep"),t("deltask"))){_,i->
+      if(i==0){Store.saveTasks(this@MainActivity,Store.tasks(this@MainActivity).map{x->if(x.id==tk.id)x.copy(date=Store.day()) else x});Scheduler.cancel(this@MainActivity,tk.id);Scheduler.cancel(this@MainActivity,"pre_"+tk.id);Scheduler.all(this@MainActivity);toast(t("stopped"));render()}
+      else if(tk.strict&&!done&&!skp)toast(t("nodel")) else{delTask(tk.id);render()}}.setNegativeButton(t("back"),null).show()
+     true}})}}
   val tm=Store.tomorrows(this).sortedBy{it.mins}
   if(tm.isNotEmpty()){put(lab(t("tomorrow")));put(card().apply{tm.forEach{tk->addView(row(tk.title,tk.time+"  •  "+tk.dur+" min","",MUT){delTask(tk.id);render()})}})}
   put(btn(t("addtask")){addTask()})}
@@ -221,13 +227,13 @@ class MainActivity:Activity(){
   grp(t("set_pref")){addView(row(t("theme"),"",themeName()){themePick()});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,d(8f));addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("reduce"),15f,TX,true));addView(tx(t("reduce_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("reduce",false)){p.edit().putBoolean("reduce",it).apply();render()})});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(8f),0,d(8f));addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("mot"),15f,TX,true));addView(tx(t("mot_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("mot",true)){p.edit().putBoolean("mot",it).apply();Scheduler.all(this@MainActivity)})});addView(divider());addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL;addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(tx(t("hap"),15f,TX,true));addView(tx(t("hap_d"),11f,MUT))},LinearLayout.LayoutParams(0,W,1f));addView(sw(p.getBoolean("hap",true)){p.edit().putBoolean("hap",it).apply()})})}}
 
  // ---------- profile ----------
- private fun saveProfile(){val e=pr().edit();nEt?.let{e.putString("name",it.text.toString().trim().ifBlank{"Yash"})};gEt?.let{e.putString("goal",it.text.toString().trim().ifBlank{"my goal"})};e.apply()}
+ private fun saveProfile(){val e=pr().edit();nEt?.let{e.putString("name",it.text.toString().trim().ifBlank{"Yash"})};gEt?.let{e.putString("goal",it.text.toString().trim().ifBlank{"my goal"})};e.apply();nDraft=null;gDraft=null}
  private fun profilePage(onb:Boolean){
   if(!onb)put(btn(t("back"),false){saveProfile();page="";render()})
   put(tx(if(onb)t("welcome") else t("profile"),26f,TX,true).apply{setPadding(0,d(6f),0,d(6f))})
   put(lab(t("lang")));for((i,n) in listOf("English","Hinglish","हिन्दी").withIndex())put(btn(n,pr().getInt("lang",1)==i){saveProfile();pr().edit().putInt("lang",i).apply();render()})
-  put(lab(t("name")));nEt=EditText(this).apply{setText(Store.name(this@MainActivity));setTextColor(TX);setHintTextColor(MUT);hint=t("name")};put(card().apply{addView(nEt)})
-  put(lab(t("goal")));gEt=EditText(this).apply{setText(if(pr().getString("goal",null)==null&&onb)"" else Store.goal(this@MainActivity));setTextColor(TX);setHintTextColor(MUT);hint=t("goalhint");inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;minLines=5;gravity=Gravity.TOP;textSize=14f}
+  put(lab(t("name")));nEt=EditText(this).apply{setText(nDraft?:Store.name(this@MainActivity));setTextColor(TX);setHintTextColor(MUT);hint=t("name");addTextChangedListener(watch{nDraft=it})};put(card().apply{addView(nEt)})
+  put(lab(t("goal")));gEt=EditText(this).apply{setText(gDraft?:(if(pr().getString("goal",null)==null&&onb)"" else Store.goal(this@MainActivity)));addTextChangedListener(watch{gDraft=it});setTextColor(TX);setHintTextColor(MUT);hint=t("goalhint");inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;minLines=5;gravity=Gravity.TOP;textSize=14f}
   put(card().apply{addView(gEt)})
   put(lab(t("inten")));for((i,k) in listOf("gentle","strictl","brutal").withIndex())put(btn(t(k),L.inten(this)==i){saveProfile();pr().edit().putInt("int",i).apply();render()})
   put(btn(if(onb)t("begin") else t("save")){saveProfile();pr().edit().putBoolean("onb",true).apply();Scheduler.all(this);toast(t("saved"));page="";if(onb)tab="set";render()})}
@@ -287,17 +293,18 @@ class MainActivity:Activity(){
  private var aOut:Store.AuditOut?=null;private var aMsgs:List<String> = emptyList();private var aLocked:List<String> = emptyList();private val aCol=ArrayList<()->Unit>()
  override fun onBackPressed(){if(page!=""){page="";aOut=null;render()}else super.onBackPressed()}
  private fun audit(){
+  if(page=="audit"&&aOut==null)return
   val st=Store.todays(this).filter{it.strict}
   if(st.isEmpty()){toast(t("nostrict"));return}
   if(pr().getBoolean("aud_"+Store.day(),false)){toast(t("auddone"));return}
   aStep=0;aQ=IntArray(4){3};a30=1;aSat=1;aRef=Array(4){""};aOut=null;aRes=Store.taskResults(this)
   aRecs=ArrayList(aRes.filter{it.st<2}.map{MissRec(it.t,it.st)});page="audit";tab="today";render()}
  private fun stat(n:Int,l:String,col:Int)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;layoutParams=LinearLayout.LayoutParams(0,W,1f);addView(tx(n.toString(),26f,col,true));addView(tx(l,11f,MUT))}
- private fun spin(items:List<String>,sel:Int):Spinner{val ad=object:ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,items){
+ private fun spin(items:List<String>,sel:Int,onSel:(Int)->Unit={}):Spinner{val ad=object:ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,items){
    override fun getView(p:Int,v:View?,g:ViewGroup):View{val x=super.getView(p,v,g) as TextView;x.setTextColor(TX);return x}
    override fun getDropDownView(p:Int,v:View?,g:ViewGroup):View{val x=super.getDropDownView(p,v,g) as TextView;x.setTextColor(TX);x.setBackgroundColor(CARD);return x}}
-  return Spinner(this).apply{adapter=ad;setSelection(sel)}}
- private fun edit(h:String,v:String)=EditText(this).apply{setText(v);setHintTextColor(MUT);setTextColor(TX);hint=h;textSize=14f;inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;minLines=2;gravity=Gravity.TOP}
+  return Spinner(this).apply{adapter=ad;setSelection(sel);onItemSelectedListener=object:AdapterView.OnItemSelectedListener{override fun onItemSelected(p:AdapterView<*>?,v:View?,pos:Int,id:Long){onSel(pos)};override fun onNothingSelected(p:AdapterView<*>?){}}}}
+ private fun edit(h:String,v:String,f:(String)->Unit={})=EditText(this).apply{setText(v);addTextChangedListener(watch(f));setHintTextColor(MUT);setTextColor(TX);hint=h;textSize=14f;inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;minLines=2;gravity=Gravity.TOP}
  private fun prow(a:String,b:String)=LinearLayout(this).apply{setPadding(0,d(4f),0,d(4f));addView(tx(a,12f,MUT),LinearLayout.LayoutParams(0,W,1f));addView(tx(b,13f,TX,true))}
  private fun aNav(final:Boolean){val row=LinearLayout(this).apply{layoutParams=LinearLayout.LayoutParams(M,W)}
   if(aStep>0)row.addView(btn(t("a_back"),false){aCol.forEach{it()};aStep=if(aStep-1==2&&aRecs.isEmpty())1 else aStep-1;sv.scrollTo(0,0);render()},LinearLayout.LayoutParams(0,d(52f),1f).apply{marginEnd=d(8f)})
@@ -323,15 +330,15 @@ class MainActivity:Activity(){
   aNav(false)}
  private fun aMissed(){
   put(tx(t("a_hm"),22f,TX,true).apply{setPadding(0,d(6f),0,d(2f))});put(tx(t("a_nj"),12f,MUT).apply{setPadding(0,0,0,d(10f))})
-  aRecs.forEach{rc->val sr=spin((0..7).map{t("r"+it)},rc.r);val sa=spin((0..2).map{t("av"+it)},rc.av);val ep=edit("",rc.prev);val ec=edit("",rc.chg)
+  aRecs.forEach{rc->val sr=spin((0..7).map{t("r"+it)},rc.r){rc.r=it};val sa=spin((0..2).map{t("av"+it)},rc.av){rc.av=it};val ep=edit("",rc.prev){rc.prev=it};val ec=edit("",rc.chg){rc.chg=it}
    aCol.add{rc.r=sr.selectedItemPosition;rc.av=sa.selectedItemPosition;rc.prev=ep.text.toString();rc.chg=ec.text.toString()}
    put(card().apply{addView(tx(rc.t.title+"  ("+t(if(rc.st==1)"a_pt" else "a_ms")+")",16f,TX,true));addView(tx(t("a_why"),12f,MUT).apply{setPadding(0,d(8f),0,0)});addView(sr)
     addView(tx(t("a_av"),12f,MUT).apply{setPadding(0,d(8f),0,0)});addView(sa);addView(tx(t("a_pv"),12f,MUT).apply{setPadding(0,d(8f),0,0)});addView(ep);addView(tx(t("a_ch"),12f,MUT).apply{setPadding(0,d(8f),0,0)});addView(ec)})}
   aNav(false)}
  private fun aReflect(){
   put(tx(t("a_hr"),22f,TX,true).apply{setPadding(0,d(6f),0,d(10f))})
-  val eds=(0..3).map{edit("",aRef[it])};for(i in 0..3)put(card().apply{addView(tx(t("a_r"+(i+1)),14f,TX,true));addView(eds[i])})
-  val s1=spin((0..2).map{t("sa"+it)},aSat);val s2=spin((0..2).map{t("t30_"+it)},a30)
+  val eds=(0..3).map{i->edit("",aRef[i]){s->aRef[i]=s}};for(i in 0..3)put(card().apply{addView(tx(t("a_r"+(i+1)),14f,TX,true));addView(eds[i])})
+  val s1=spin((0..2).map{t("sa"+it)},aSat){aSat=it};val s2=spin((0..2).map{t("t30_"+it)},a30){a30=it}
   put(card().apply{addView(tx(t("a_r5"),14f,TX,true));addView(s1)});put(card(RED).apply{addView(tx(t("a_30"),14f,TX,true));addView(s2)})
   aCol.add{for(i in 0..3)aRef[i]=eds[i].text.toString();aSat=s1.selectedItemPosition;a30=s2.selectedItemPosition}
   aNav(true)}
