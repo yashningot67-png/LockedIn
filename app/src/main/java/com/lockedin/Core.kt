@@ -7,7 +7,7 @@ import android.media.*
 object Scheduler{
  fun all(c:Context){val pm=Store.p(c).getBoolean("mot",true);for((k,h) in listOf("mot_m" to 8,"mot_a" to 14,"mot_e" to 19))if(pm)at(c,k,h,0) else cancel(c,k)
   Store.tasks(c).forEach{if(it.date==""||(it.date.startsWith("~")&&it.date.substring(1)<=Store.day()))at(c,"pre_"+it.id,it.h,it.m,5) else atDate(c,if(it.date.startsWith("~"))it.copy(date=it.date.substring(1)) else it,true)}
-  Store.tasks(c).forEach{val dt=it.date;if(dt==""||(dt.startsWith("~")&&dt.substring(1)<=Store.day()))at(c,it.id,it.h,it.m) else atDate(c,if(dt.startsWith("~"))it.copy(date=dt.substring(1)) else it)};audit(c);evening(c)}
+  Store.tasks(c).forEach{val dt=it.date;if(dt==""||(dt.startsWith("~")&&dt.substring(1)<=Store.day()))at(c,it.id,it.h,it.m) else atDate(c,if(dt.startsWith("~"))it.copy(date=dt.substring(1)) else it)};audit(c);evening(c);at(c,"audmorn",9,0);at(c,"audmorn2",11,15)}
  fun atDate(c:Context,t:Task,pre:Boolean=false){val p=t.date.split("-");if(p.size<3)return;val cal=java.util.Calendar.getInstance().apply{set(p[0].toInt(),p[1].toInt()-1,p[2].toInt(),t.h,t.m,0);set(java.util.Calendar.MILLISECOND,0)};if(pre)cal.add(java.util.Calendar.MINUTE,-5);if(cal.timeInMillis<=System.currentTimeMillis())return;sched(c,if(pre)"pre_"+t.id else t.id,cal.timeInMillis)}
  fun evening(c:Context)=at(c,"evening",18,0)
  fun audit(c:Context)=at(c,"audit",Store.p(c).getInt("ah",22),Store.p(c).getInt("am",0))
@@ -50,6 +50,8 @@ object N{
   val x=if(left>=60)(if(left%60==0)L.f(c,"t_h","h" to (left/60).toString()) else L.f(c,"t_hm","h" to (left/60).toString(),"m" to (left%60).toString())) else L.f(c,"t_m","m" to left.toString())
   val txt=L.f(c,"rem_txt","n" to Store.name(c),"x" to x,"t" to t.title)
   c.getSystemService(NotificationManager::class.java).notify(("rem"+t.id).hashCode(),Notification.Builder(c,"mini").setSmallIcon(android.R.drawable.ic_popup_reminder).setContentTitle(t.title).setContentText(txt).setStyle(Notification.BigTextStyle().bigText(txt)).setAutoCancel(true).setContentIntent(open(c)).build())}
+ fun risk(c:Context){ch(c);val x=L.t(c,"risk_x")
+  c.getSystemService(NotificationManager::class.java).notify(9,Notification.Builder(c,"nag2").setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle(L.t(c,"risk_t")).setContentText(x).setStyle(Notification.BigTextStyle().bigText(x)).setAutoCancel(true).setContentIntent(open(c,"audit")).build())}
  fun auditNote(c:Context){ch(c);c.getSystemService(NotificationManager::class.java).notify(3,Notification.Builder(c,"nag2").setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle(L.t(c,"audnote")).setContentText(L.t(c,"audnote2")).setAutoCancel(true).setContentIntent(open(c,"audit")).setFullScreenIntent(open(c,"audit"),true).build())}
 }
 class AlarmReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent){
@@ -57,7 +59,9 @@ class AlarmReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Inten
  if(id=="dndoff"){Dnd.off(c);return}
  if(id.startsWith("rem1_")||id.startsWith("rem2_")){val tid=id.substring(5);val t=Store.tasks(c).firstOrNull{it.id==tid}?:return;val e=Store.log(c).optJSONObject(tid)
   if(e==null||!e.has("s")||e.has("e")||e.has("x"))return;val left=((e.getLong("s")+t.dur*60000L-System.currentTimeMillis())/60000).toInt();if(left>0)N.remaining(c,t,left);return}
- if(id=="audit"){Scheduler.audit(c);N.auditNote(c);return}
+ if(id=="audit"){Scheduler.audit(c);N.auditNote(c);val nw=System.currentTimeMillis();Scheduler.exact(c,"audrem1",nw+45*60000L);Scheduler.exact(c,"audrem2",nw+120*60000L);return}
+ if(id=="audrem1"||id=="audrem2"){if(!Store.p(c).getBoolean("aud_"+Store.day(),false)&&Store.todays(c).any{it.strict})N.risk(c);return}
+ if(id=="audmorn"||id=="audmorn2"){val hh=if(id=="audmorn")9 else 11;val mm=if(id=="audmorn")0 else 15;Scheduler.at(c,id,hh,mm);if(Store.auditPending(c))N.risk(c);return}
  if(id=="evening"){Scheduler.evening(c);N.evening(c);return}
  if(id.startsWith("mot_")){val hh=when(id){"mot_m"->8;"mot_a"->14;else->19};Scheduler.at(c,id,hh,0);if(Store.p(c).getBoolean("mot",true))N.motivation(c);return}
  if(id.startsWith("pre_")){val tid=id.removePrefix("pre_");val tk=Store.tasks(c).firstOrNull{it.id==tid}?:return

@@ -17,7 +17,8 @@ object Store{
  fun tasks(c:Context):List<Task>{val a=JSONArray(p(c).getString("tasks","[]"))
   return (0 until a.length()).map{val o=a.getJSONObject(it);Task(o.getString("id"),o.getString("t"),o.getInt("h"),o.getInt("m"),o.getInt("d"),o.getBoolean("s"),o.optString("dt",""))}.sortedBy{it.mins}}
  fun saveTasks(c:Context,l:List<Task>){val a=JSONArray();l.forEach{a.put(JSONObject().put("id",it.id).put("t",it.title).put("h",it.h).put("m",it.m).put("d",it.dur).put("s",it.strict).put("dt",it.date))};p(c).edit().putString("tasks",a.toString()).apply()}
- fun log(c:Context)=JSONObject(p(c).getString("log_"+day(),"{}"))
+ fun logFor(c:Context,d:String)=JSONObject(p(c).getString("log_"+d,"{}"))
+ fun log(c:Context)=logFor(c,day())
  fun mark(c:Context,id:String,k:String,v:Any){val l=log(c);val o=l.optJSONObject(id)?:JSONObject();o.put(k,v);l.put(id,o);p(c).edit().putString("log_"+day(),l.toString()).apply()}
  fun start(c:Context,id:String){mark(c,id,"s",System.currentTimeMillis());val t=tasks(c).firstOrNull{it.id==id};if(t!=null&&t.strict){p(c).edit().putLong("focus",System.currentTimeMillis()+t.dur*60000L).apply();val nowMs=System.currentTimeMillis()
    if(t.dur>=20)Scheduler.exact(c,"rem1_"+id,nowMs+t.dur*30000L);if(t.dur>=40)Scheduler.exact(c,"rem2_"+id,nowMs+t.dur*60000L-15*60000L)
@@ -27,14 +28,15 @@ object Store{
   val k="fm_"+day();val used=p(c).getInt(k,0);val add=minOf(maxOf(0,120-used),maxOf(0,mins));p(c).edit().putInt(k,used+add).apply()
   }
  fun skip(c:Context,id:String){mark(c,id,"x",true);p(c).edit().putLong("focus",0).apply();Dnd.off(c);addXp(c,-15)}
- fun todays(c:Context)=tasks(c).filter{it.date==""||it.date==day()||(it.date.startsWith("~")&&it.date.substring(1)<=day())}
+ fun tasksOn(c:Context,d:String)=tasks(c).filter{it.date==""||it.date==d||(it.date.startsWith("~")&&it.date.substring(1)<=d)}
+ fun todays(c:Context)=tasksOn(c,day())
  fun tomorrows(c:Context)=tasks(c).filter{it.date==key(-1)||it.date=="~"+key(-1)}
  fun goalShort(c:Context):String{val g=goal(c).trim().replace("\n"," ");val e=g.indexOfFirst{it=='.'||it=='!'||it=='?'};val s=if(e in 10..140)g.substring(0,e+1) else g;return if(s.length>110)s.take(107)+"..." else s}
  fun pending(c:Context):Task?{val l=log(c);return todays(c).firstOrNull{it.strict&&it.mins<=nowMin()&&!l.has(it.id)}}
  fun apps(c:Context):List<Pair<String,String>>{val a=JSONArray(p(c).getString("apps","[]"));return (0 until a.length()).map{val s=a.getString(it).split("|");s[0] to s[1]}}
  fun saveApps(c:Context,l:List<Pair<String,String>>){val a=JSONArray();l.forEach{a.put(it.first+"|"+it.second)};p(c).edit().putString("apps",a.toString()).apply()}
  fun locks(c:Context)=JSONObject(p(c).getString("locks","{}"))
- fun lock(c:Context,pkg:String,hours:Int=20){p(c).edit().putString("locks",locks(c).put(pkg,System.currentTimeMillis()+hours*3600000L).toString()).apply()}
+ fun lock(c:Context,pkg:String,hours:Int=20){p(c).edit().putInt("lh_"+pkg,hours).putString("locks",locks(c).put(pkg,System.currentTimeMillis()+hours*3600000L).toString()).apply()}
  fun label(c:Context,pkg:String)=apps(c).firstOrNull{it.second==pkg}?.first?:pkg
  private fun f(c:Context,s:String)=s.replace("{n}",name(c)).replace("{g}",goal(c))
  private val Q=listOf("Bhai {n}, mood nahi, system chalta hai. {g} ke liye bas start kar.","Jo aaj {g} ke liye pasina bahayega, wahi kal results pe hasega.","Discipline boring lagta hai, par regret usse zyada boring hota hai.","5 minute shuru kar de {n}, baaki momentum sambhal lega.","Tera competition koi aur nahi, kal wala tu hai.","Lock-in ho ja {n}. Tareef baad me milegi, pehle kaam.")
@@ -47,8 +49,8 @@ object Store{
  fun key(ago:Int):String{val cl=Calendar.getInstance();cl.add(Calendar.DAY_OF_YEAR,-ago);return SimpleDateFormat("yyyy-MM-dd",Locale.US).format(cl.time)}
  fun liveProgress(c:Context):Pair<Int,Int>{val l=log(c);val st=todays(c).filter{it.strict};return st.count{l.optJSONObject(it.id)?.has("e")==true} to st.size}
  fun pctAt(c:Context,ago:Int):Int{val h=p(c).getInt("h_"+key(ago),-1);if(h>=0||ago!=0)return h;val(d,t)=liveProgress(c);return if(t==0)-1 else d*100/t}
- fun setHist(c:Context,pct:Int,ok:Boolean){p(c).edit().putInt("h_"+day(),pct).putBoolean("ok_"+day(),ok).apply();val s=streak(c);if(s>p(c).getInt("best",0))p(c).edit().putInt("best",s).apply()}
- fun streak(c:Context):Int{var i=if(p(c).getBoolean("ok_"+day(),false))0 else 1;var n=0;while(i<400&&p(c).getBoolean("ok_"+key(i),false)){n++;i++};return n}
+ fun setHist(c:Context,pct:Int,ok:Boolean,d:String=day()){p(c).edit().putInt("h_"+d,pct).putBoolean("ok_"+d,ok).apply();val s=streak(c);if(s>p(c).getInt("best",0))p(c).edit().putInt("best",s).apply()}
+ fun streak(c:Context):Int{var i=if(p(c).getBoolean("ok_"+day(),false))0 else if(auditPending(c))2 else 1;var n=0;while(i<400&&p(c).getBoolean("ok_"+key(i),false)){n++;i++};return n}
  fun best(c:Context)=maxOf(p(c).getInt("best",0),streak(c))
 
  fun focusOn(c:Context)=p(c).getBoolean("dw",true)&&p(c).getLong("focus",0)>System.currentTimeMillis()
@@ -67,13 +69,13 @@ object Store{
  fun rankName(c:Context)=RANKS[rankIdx(c)].first
  fun rankPct(c:Context):Int{val i=rankIdx(c);if(i==RANKS.lastIndex)return 100;val a=RANKS[i].second;val b=RANKS[i+1].second;return (xp(c)-a)*100/(b-a)}
  class AuditResult(val pass:Boolean,val shieldUsed:Boolean,val lockHours:Int,val lockCount:Int,val reward:String)
- fun applyAudit(c:Context,failCount:Int,total:Int,taskXp:Int=0,po:Int=-1):AuditResult{
+ fun applyAudit(c:Context,failCount:Int,total:Int,taskXp:Int=0,po:Int=-1,d:String=day()):AuditResult{
   val pr=p(c);val pct=if(po>=0)po else (total-failCount)*100/total;var reward=""
   if(failCount==0){
    pr.edit().putInt("miss",0).apply();addXp(c,30+taskXp)
    val cb=pr.getInt("cb",0)
    if(cb>0){pr.edit().putInt("cb",cb-1).apply();if(cb==1){pr.edit().putInt("shield",minOf(2,pr.getInt("shield",0)+1)).apply();reward+="Comeback complete: shield mila. "}}
-   setHist(c,pct,true)
+   setHist(c,pct,true,d)
    val s=streak(c)
    if(s>0&&s%7==0){pr.edit().putInt("shield",minOf(2,pr.getInt("shield",0)+1)).putInt("cheatn",pr.getInt("cheatn",0)+1).apply();addXp(c,30);reward+="Perfect week: shield aur cheat hour mila."}
    return AuditResult(true,false,0,0,reward.trim())}
@@ -81,7 +83,7 @@ object Store{
   pr.edit().putInt("miss",miss).apply();addXp(c,taskXp-30)
   val sh=pr.getInt("shield",0);var used=false
   if(sh>0){pr.edit().putInt("shield",sh-1).apply();used=true}else if(prev>=3)pr.edit().putInt("cb",3).apply()
-  setHist(c,pct,used)
+  setHist(c,pct,used,d)
   return AuditResult(false,used,minOf(48,20+8*(miss-1)),1+(miss-1)/2,"")}
  private fun tail(a:JSONArray,n:Int):JSONArray{if(a.length()<=n)return a;val r=JSONArray();for(i in a.length()-n until a.length())r.put(a.get(i));return r}
  fun addExcuse(c:Context,title:String,reason:String){val a=JSONArray(p(c).getString("exc","[]"));a.put(JSONObject().put("t",title).put("r",reason).put("d",day()));p(c).edit().putString("exc",tail(a,100).toString()).apply()}
@@ -100,7 +102,7 @@ object Store{
   if(out.isEmpty())out.add(L.t(c,"i_ok"))
   return out}
  class TaskRes(val t:Task,val st:Int,val onTime:Boolean,val el:Int)
- fun taskResults(c:Context):List<TaskRes>{val l=log(c);return todays(c).filter{it.strict}.sortedBy{it.mins}.map{t->val e=l.optJSONObject(t.id)
+ fun taskResults(c:Context,d:String=day()):List<TaskRes>{val l=logFor(c,d);return tasksOn(c,d).filter{it.strict}.sortedBy{it.mins}.map{t->val e=l.optJSONObject(t.id)
    val done=e?.has("e")==true;val started=e?.has("s")==true;val st=if(done)2 else if(started&&e?.has("x")!=true)1 else 0
    var on=false;var el=0
    if(started&&e!=null){val cl=Calendar.getInstance();cl.timeInMillis=e.getLong("s");on=cl.get(Calendar.HOUR_OF_DAY)*60+cl.get(Calendar.MINUTE)<=t.mins+10;if(done)el=((e.getLong("e")-e.getLong("s"))/60000).toInt()}
@@ -115,7 +117,7 @@ object Store{
   val self=(refl*14+when(a30){0->30;1->15;else->0}).coerceIn(0,100)
   val total=(comp*.4f+qual*.2f+disc*.2f+cons*.1f+self*.1f).toInt().coerceIn(0,100)
   return Score(comp,qual,disc,cons,self,total,(q[0]-1)*25)}
- fun addFail(c:Context,title:String,reason:Int,avoid:Int){val a=JSONArray(p(c).getString("fl","[]"));a.put(JSONObject().put("d",day()).put("t",title).put("r",reason).put("a",avoid));p(c).edit().putString("fl",tail(a,200).toString()).apply()}
+ fun addFail(c:Context,title:String,reason:Int,avoid:Int,d:String=day()){val a=JSONArray(p(c).getString("fl","[]"));a.put(JSONObject().put("d",d).put("t",title).put("r",reason).put("a",avoid));p(c).edit().putString("fl",tail(a,200).toString()).apply()}
  fun recurring(c:Context):Pair<Int,Int>?{val a=JSONArray(p(c).getString("fl","[]"));val cnt=IntArray(8);val ks=(0..6).map{key(it)}.toSet()
   for(i in 0 until a.length()){val o=a.getJSONObject(i);if(o.getString("d") in ks)cnt[o.getInt("r").coerceIn(0,7)]++}
   val m=cnt.indices.maxByOrNull{cnt[it]}!!;return if(cnt[m]>=3)m to cnt[m] else null}
@@ -123,11 +125,11 @@ object Store{
   for(i in 0 until a.length()){val o=a.getJSONObject(i);by.getOrPut(o.getString("t")){HashSet()}.add(o.getString("d"))}
   for((t,days) in by){var i=if(key(0) in days)0 else 1;var n=0;while(i<30&&key(i) in days){n++;i++};if(n>=3)return t to n};return null}
  class AuditOut(val score:Score,val level:Int,val pass:Boolean,val warn:Boolean,val punish:Boolean,val shield:Boolean,val lockHours:Int,val lockCount:Int,val reward:String)
- fun finishAudit(c:Context,sc:Score,res:List<TaskRes>):AuditOut{
-  p(c).edit().putString("ad_"+day(),JSONObject().put("sc",sc.total).put("cp",sc.comp).put("fo",sc.focus).put("di",sc.disc).put("ms",res.count{it.st==0}).put("pt",res.count{it.st==1}).put("tt",res.size).toString()).putBoolean("aud_"+day(),true).apply()
+ fun finishAudit(c:Context,sc:Score,res:List<TaskRes>,d:String=day()):AuditOut{
+  p(c).edit().putString("ad_"+d,JSONObject().put("sc",sc.total).put("cp",sc.comp).put("fo",sc.focus).put("di",sc.disc).put("ms",res.count{it.st==0}).put("pt",res.count{it.st==1}).put("tt",res.size).toString()).putBoolean("aud_"+d,true).apply()
   for(r in res)addEvent(c,r.t.title,r.st==2)
   var xp=0;for(r in res)if(r.st==2)xp+=if(r.el>=r.t.dur/2)10+minOf(r.el,r.t.dur)/10 else 3
-  val a=applyAudit(c,if(sc.total>=60)0 else 1,1,minOf(xp,60),sc.total)
+  val a=applyAudit(c,if(sc.total>=60)0 else 1,1,minOf(xp,60),sc.total,d)
   return AuditOut(sc,levelIdx(sc.total),a.pass,sc.total in 60..74,sc.total<60,a.shieldUsed,a.lockHours,a.lockCount,a.reward)}
  fun backup(c:Context):String{p(c).edit().putLong("lastbk",System.currentTimeMillis()).apply();val o=JSONObject()
   for((k,v) in p(c).all){if(k=="crash")continue;val j=JSONObject()
@@ -158,4 +160,11 @@ object Store{
   return todays(c).any{it.strict&&it.mins<=n&&l.optJSONObject(it.id).let{e->e==null||(!e.has("e")&&!e.has("x"))}}}
  fun locksActive(c:Context):Boolean{val l=locks(c);return l.keys().asSequence().any{l.optLong(it,0)>System.currentTimeMillis()}}
  fun restricting(c:Context)=focusOn(c)||sunsetOn(c)||taskBlock(c)||locksActive(c)||p(c).getLong("testlock",0)>System.currentTimeMillis()
+
+ fun auditPending(c:Context):Boolean{if(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)>=12)return false;val y=key(1)
+  return !p(c).getBoolean("aud_"+y,false)&&tasksOn(c,y).any{it.strict}}
+ class Week(val n:Int,val cp:Int,val fo:Int,val di:Int,val ms:Int,val msPrev:Int)
+ fun week(c:Context):Week?{var n=0;var cp=0;var fo=0;var di=0;var ms=0;var msP=0
+  for(i in 0..13){val s=p(c).getString("ad_"+key(i),null)?:continue;val o=JSONObject(s);if(i<7){n++;cp+=o.getInt("cp");fo+=o.getInt("fo");di+=o.getInt("di");ms+=o.getInt("ms")}else msP+=o.getInt("ms")}
+  return if(n==0)null else Week(n,cp/n,fo/n,di/n,ms,msP)}
 }

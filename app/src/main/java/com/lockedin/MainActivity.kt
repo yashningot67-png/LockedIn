@@ -28,6 +28,9 @@ class MainActivity:Activity(){
  private val M=ViewGroup.LayoutParams.MATCH_PARENT;private val W=ViewGroup.LayoutParams.WRAP_CONTENT
  private var nEt:EditText?=null;private var gEt:EditText?=null;private var nDraft:String?=null;private var gDraft:String?=null
  private fun watch(f:(String)->Unit)=object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun afterTextChanged(e:android.text.Editable?){f(e?.toString()?:"")}}
+ private var aDay="";private val cds=ArrayList<Pair<TextView,Long>>()
+ private fun fmtCd(u:Long):String{val s=maxOf(0L,(u-System.currentTimeMillis())/1000);return String.format("%02d:%02d:%02d",s/3600,s%3600/60,s%60)}
+ private val cdTick=object:Runnable{override fun run(){cds.forEach{(tv,u)->tv.text=fmtCd(u)};H.postDelayed(this,1000)}}
  private fun t(k:String)=L.t(this,k)
  private fun pr()=Store.p(this)
  private fun d(v:Float)=dp(v).toInt()
@@ -44,12 +47,12 @@ class MainActivity:Activity(){
   if(Build.VERSION.SDK_INT>=33)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),1)
   Scheduler.all(this)}
  override fun onNewIntent(i:Intent){super.onNewIntent(i);setIntent(i)}
- override fun onResume(){super.onResume();if(!::root.isInitialized)return;H.removeCallbacks(tick);H.post(tick);if(guardAsk)checkGuard() else GuardService.ensure(this);if(pr().getBoolean("dnd_on",false)&&pr().getLong("focus",0)<=System.currentTimeMillis())Dnd.off(this);var ex=false
+ override fun onResume(){super.onResume();if(!::root.isInitialized)return;H.removeCallbacks(tick);H.post(tick);H.removeCallbacks(cdTick);H.post(cdTick);if(guardAsk)checkGuard() else GuardService.ensure(this);if(pr().getBoolean("dnd_on",false)&&pr().getLong("focus",0)<=System.currentTimeMillis())Dnd.off(this);var ex=false
   if(intent.getBooleanExtra("audit",false)){intent.removeExtra("audit");ex=true;audit()}
   val sid=intent.getStringExtra("skipId");if(sid!=null){intent.removeExtra("skipId");ex=true;skipDialog(sid)}
   if(!ex&&pr().getBoolean("onb",false)&&Store.nowMin()>=pr().getInt("ah",22)*60+pr().getInt("am",0)&&!pr().getBoolean("aud_"+Store.day(),false)&&pr().getString("autoaud","")!=Store.day()&&Store.todays(this).any{it.strict}){pr().edit().putString("autoaud",Store.day()).apply();ex=true;audit()}
   if(!ex)H.postDelayed({dailyPopup()},700)}
- override fun onPause(){super.onPause();H.removeCallbacks(tick)}
+ override fun onPause(){super.onPause();H.removeCallbacks(tick);H.removeCallbacks(cdTick)}
  // ---------- ui helpers ----------
  private fun bgd(c:Int,r:Float=16f,st:Int=0)=GradientDrawable().apply{setColor(c);cornerRadius=dp(r);if(st!=0)setStroke(d(1.5f),st)}
  private fun tx(s:String,sz:Float,col:Int=TX,bold:Boolean=false)=TextView(this).apply{text=s;textSize=sz;setTextColor(col);if(bold)typeface=Typeface.create("sans-serif-condensed",Typeface.BOLD)}
@@ -93,7 +96,7 @@ class MainActivity:Activity(){
  // ---------- render ----------
  private fun render(celebrate:Boolean=false){
   REDUCE=pr().getBoolean("reduce",false);val th=pr().getInt("theme",-1);applyTheme(if(th>=0)minOf(th,Store.rankIdx(this)) else Store.rankIdx(this),th==-2);window.statusBarColor=BG;window.navigationBarColor=BG;window.decorView.systemUiVisibility=if(LIGHT)(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR) else 0;sv.setBackgroundColor(BG);shell.setBackgroundColor(BG)
-  items.clear();root.removeAllViews()
+  items.clear();cds.clear();root.removeAllViews()
   val onb=!pr().getBoolean("onb",false)
   if(!onb&&page=="audit"){nav.visibility=View.GONE;auditPage();return}
   if(onb||page=="profile"){nav.visibility=View.GONE;profilePage(onb);return}
@@ -110,7 +113,10 @@ class MainActivity:Activity(){
   if(last<0||rk<last)pr().edit().putInt("rk",rk).putInt("xpseen",xp).apply() else if(rk>last){val e=xp-pr().getInt("xpseen",0);pr().edit().putInt("rk",rk).putInt("xpseen",xp).apply();rankUp(rk,e)}}
 
  private fun homeTab(celebrate:Boolean){
-  put(tx(L.greet(this),16f,TX,true).apply{setPadding(0,0,0,d(10f))})
+ put(tx(L.greet(this),16f,TX,true).apply{setPadding(0,0,0,d(10f))})
+  val aTime=pr().getInt("ah",22)*60+pr().getInt("am",0)
+  if(Store.auditPending(this))put(card(AMBER).apply{addView(tx(t("a_pend"),13f,AMBER,true));addView(small(t("a_start")){audit()},LinearLayout.LayoutParams(W,W).apply{topMargin=d(8f)})})
+  else if(!pr().getBoolean("aud_"+Store.day(),false)&&Store.nowMin()>=aTime&&Store.todays(this).any{it.strict})put(card(AMBER).apply{addView(tx(t("a_risktoday"),13f,AMBER,true));addView(small(t("a_start")){audit()},LinearLayout.LayoutParams(W,W).apply{topMargin=d(8f)})})
   put(card().apply{addView(tx(t("dose"),11f,MUT,true).apply{letterSpacing=.2f});addView(tx(L.dose(this@MainActivity),15f).apply{setPadding(0,d(6f),0,0)})})
   val (dn,tt)=Store.liveProgress(this);ring.label=t("today");ring.set(if(tt==0)0f else dn*100f/tt);flame.tint=Store.rankIdx(this);flame.set(Store.streak(this),celebrate);detach(ring);detach(flame)
   put(card().apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
@@ -132,7 +138,9 @@ class MainActivity:Activity(){
    addView(tx(t("lockedapps"),11f,MUT,true).apply{letterSpacing=.16f})
    addView(tx(if(apps.isEmpty())t("noapps") else t(if(act)"active_n" else "ready_n").replace("{n}",apps.size.toString()),13f,if(act&&apps.isNotEmpty())GREEN else TX).apply{setPadding(0,d(4f),0,d(8f))})
    addView(LinearLayout(this@MainActivity).apply{apps.forEach{a->addView(appIcon(a.second,26f))}})})
-  val lk=Store.locks(this);lk.keys().forEach{k->val u=lk.getLong(k);if(u>System.currentTimeMillis())put(card(RED).apply{addView(tx(t("lockedfor")+": "+Store.label(this@MainActivity,k),15f,RED,true));addView(tx(timeStr(u),12f,MUT))})}
+  val lk=Store.locks(this);lk.keys().forEach{k->val u=lk.getLong(k);if(u>System.currentTimeMillis()){val hrs=pr().getInt("lh_"+k,20);val cd=tx(fmtCd(u),28f,RED,true).apply{setPadding(0,d(8f),0,0)};cds.add(cd to u)
+   put(card(RED).apply{addView(tx(t("p_viol"),13f,RED,true).apply{letterSpacing=.12f});addView(tx(Store.label(this@MainActivity,k),22f,TX,true).apply{setPadding(0,d(6f),0,0)});addView(tx(t("p_sel"),12f,MUT).apply{setPadding(0,0,0,d(6f))})
+    addView(prow(t("p_dur"),L.f(this@MainActivity,"p_hours","h" to hrs.toString())));addView(prow(t("p_rs"),t("p_rsv")));addView(prow(t("p_st"),t("p_lk")));addView(cd);addView(tx(t("p_rem"),11f,MUT));addView(tx(t("p_stay"),12f,MUT).apply{setPadding(0,d(8f),0,0)})})}}
   if(Store.cheatOn(this))put(card(GREEN).apply{addView(tx(t("cheaton"),14f,GREEN,true))})
   // missions
   put(lab(t("mission")));val log=Store.log(this);val td=Store.todays(this).filter{it.strict||log.optJSONObject(it.id)?.has("fired")!=true}.sortedBy{it.mins}
@@ -169,6 +177,12 @@ class MainActivity:Activity(){
     addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;setPadding(d(16f),0,0,0)
      if(pt==null)addView(tx(t("pat_none"),13f,MUT)) else {addView(tx(t("pat_best"),12f,MUT));addView(tx(t("tb"+pt.first),15f,TX,true));addView(tx(t("pat_cons"),12f,MUT).apply{setPadding(0,d(10f),0,0)});addView(tx(t(if(pt.second==0)"wd" else "we"),15f,TX,true))}},LinearLayout.LayoutParams(0,W,1f))})
    Store.insights(this@MainActivity).forEach{addView(tx(it,12f,MUT).apply{setPadding(0,d(8f),0,0)})}})
+  put(lab(t("w_t")));val wk=Store.week(this)
+  put(card().apply{if(wk==null)addView(tx(t("w_none"),13f,MUT)) else{addView(tx(L.f(this@MainActivity,"w_days","n" to wk.n.toString()),11f,MUT,true))
+   addView(prow(t("w_cp"),wk.cp.toString()+"%"));addView(prow(t("w_fo"),wk.fo.toString()+"%"));addView(prow(t("w_di"),wk.di.toString()+"%"))
+   addView(prow(t("w_ms"),wk.ms.toString()+"  ("+t(if(wk.ms<wk.msPrev)"w_up" else if(wk.ms>wk.msPrev)"w_dn" else "w_eq")+")"))
+   Store.recurring(this@MainActivity)?.let{addView(tx(L.f(this@MainActivity,"w_rec","r" to t("r"+it.first),"n" to it.second.toString()),12f,AMBER).apply{setPadding(0,d(8f),0,0)})}
+   Store.consecutive(this@MainActivity)?.let{addView(tx(L.f(this@MainActivity,"w_cons","t" to it.first,"n" to it.second.toString()),12f,RED).apply{setPadding(0,d(4f),0,0)})}}})
   put(rankCard())}
  private fun rankCard():View{val i=Store.rankIdx(this);val rp=Store.rankPct(this)
   return card().apply{addView(LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL
@@ -294,10 +308,11 @@ class MainActivity:Activity(){
  override fun onBackPressed(){if(page!=""){page="";aOut=null;render()}else super.onBackPressed()}
  private fun audit(){
   if(page=="audit"&&aOut==null)return
-  val st=Store.todays(this).filter{it.strict}
+  aDay=if(Store.auditPending(this))Store.key(1) else Store.day()
+  val st=Store.tasksOn(this,aDay).filter{it.strict}
   if(st.isEmpty()){toast(t("nostrict"));return}
-  if(pr().getBoolean("aud_"+Store.day(),false)){toast(t("auddone"));return}
-  aStep=0;aQ=IntArray(4){3};a30=1;aSat=1;aRef=Array(4){""};aOut=null;aRes=Store.taskResults(this)
+  if(pr().getBoolean("aud_"+aDay,false)){toast(t("auddone"));return}
+  aStep=0;aQ=IntArray(4){3};a30=1;aSat=1;aRef=Array(4){""};aOut=null;aRes=Store.taskResults(this,aDay)
   aRecs=ArrayList(aRes.filter{it.st<2}.map{MissRec(it.t,it.st)});page="audit";tab="today";render()}
  private fun stat(n:Int,l:String,col:Int)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;layoutParams=LinearLayout.LayoutParams(0,W,1f);addView(tx(n.toString(),26f,col,true));addView(tx(l,11f,MUT))}
  private fun spin(items:List<String>,sel:Int,onSel:(Int)->Unit={}):Spinner{val ad=object:ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,items){
@@ -343,9 +358,10 @@ class MainActivity:Activity(){
   aCol.add{for(i in 0..3)aRef[i]=eds[i].text.toString();aSat=s1.selectedItemPosition;a30=s2.selectedItemPosition}
   aNav(true)}
  private fun feedback(o:Store.AuditOut):List<String>{val sc=o.score;val l=ArrayList<String>()
+  l.add(t("f_lead"+L.inten(this)+(if(sc.total>=75)0 else if(sc.total>=60)1 else 2)))
   l.add(L.f(this,"f_lv","lv" to t("lv"+o.level),"s" to sc.total.toString()))
-  val dims=intArrayOf(sc.comp,sc.qual,sc.disc,sc.cons,sc.self);val wi=dims.indices.minByOrNull{dims[it]}!!;l.add(t("f_d"+wi))
-  aRecs.map{it.r}.distinct().take(2).forEach{l.add(t("f_r"+it))}
+  val dims=intArrayOf(sc.comp,sc.qual,sc.disc,sc.cons,sc.self);val wi=dims.indices.minByOrNull{dims[it]}!!;l.add(t("f_p"+L.inten(this))+" "+t("f_d"+wi))
+  aRecs.map{it.r}.distinct().take(2).forEach{l.add(t("f_p"+L.inten(this))+" "+t("f_r"+it))}
   val av=aRecs.count{it.av==0};if(av>0)l.add(L.f(this,"f_av","n" to av.toString()))
   Store.recurring(this)?.let{l.add(L.f(this,"w_rec","r" to t("r"+it.first),"n" to it.second.toString()))}
   Store.consecutive(this)?.let{l.add(L.f(this,"w_cons","t" to it.first,"n" to it.second.toString()))}
@@ -355,8 +371,8 @@ class MainActivity:Activity(){
   l.add(t("f_t"+L.inten(this)));return l}
  private fun aEnd(){
   if(aOut==null){val refl=aRef.count{it.isNotBlank()}+1
-   val sc=Store.score(this,aRes,aQ,refl,a30);val out=Store.finishAudit(this,sc,aRes);aOut=out
-   aRecs.forEach{Store.addFail(this,it.t.title,it.r,it.av)}
+   val sc=Store.score(this,aRes,aQ,refl,a30);val out=Store.finishAudit(this,sc,aRes,aDay);aOut=out
+   aRecs.forEach{Store.addFail(this,it.t.title,it.r,it.av,aDay)}
    val free=if(out.punish)Store.apps(this).filter{Store.locks(this).optLong(it.second,0)<System.currentTimeMillis()}.shuffled().take(out.lockCount) else emptyList()
    free.forEach{Store.lock(this,it.second,out.lockHours)};aLocked=free.map{it.first};aMsgs=feedback(out)}
   val o=aOut!!;val sc=o.score;val col=if(sc.total>=80)GREEN else if(sc.total>=60)AMBER else RED
